@@ -4,7 +4,10 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Tuple, Optional
 from flask import Flask, jsonify, make_response, request, render_template, redirect, url_for
 from flask_cors import CORS
-from libanalyst.password_strength_checker import check_single_password
+from libanalyst.password_strength_checker import (
+    check_single_password, analyze_multiple_files_for_comparison, 
+    create_strength_comparison_chart
+)
 from libanalyst.password_entropy_checker import analyze_single_password, analyze_password_file
 from libanalyst.password_evaluate_checker import evaluate_model, create_evaluation_charts, create_comparison_evaluation_chart
 from libanalyst.password_pattern_checker import (
@@ -662,22 +665,31 @@ def check_single_password_api():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 @app.route('/check_password_file', methods=['POST'])
 def check_password_file_api():
     try:
         if 'file' not in request.files:
+            logger.error("No 'file' key in request.files")
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
         if file.filename == '':
+            logger.error("Empty filename")
             return jsonify({'error': 'No file selected'}), 400
+        
+        # Log để debug
+        logger.info(f"Processing file: {file.filename}")
         
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as temp_file:
-            content = file.read().decode('utf-8')
-            temp_file.write(content)
-            temp_filename = temp_file.name
+            try:
+                content = file.read().decode('utf-8')
+                temp_file.write(content)
+                temp_filename = temp_file.name
+                logger.info(f"File saved to: {temp_filename}")
+            except UnicodeDecodeError as e:
+                logger.error(f"Unicode decode error: {e}")
+                return jsonify({'error': 'File encoding error. Please use UTF-8 encoded files.'}), 400
         
         try:
             # Read and analyze passwords
@@ -686,33 +698,40 @@ def check_password_file_api():
             valid_passwords = [p.strip() for p in passwords if p.strip()]
             total_passwords = len(valid_passwords)
             
+            logger.info(f"Total passwords found: {total_passwords}")
+            
             if total_passwords == 0:
                 return jsonify({'error': 'File is empty or contains no valid passwords'}), 400
             
             # Analyze each password
             results = []
             strong_count = 0
-            strong_passwords_list = []  # THÊM DÒNG NÀY
+            strong_passwords_list = []
             issues_counter = Counter()
             
             for password in valid_passwords:
-                is_strong, issues = check_single_password(password)
-                results.append({
-                    'password': password,
-                    'is_strong': is_strong,
-                    'issues': issues
-                })
-                if is_strong:
-                    strong_count += 1
-                    strong_passwords_list.append(password)  # THÊM DÒNG NÀY
-                else:
-                    issues_counter.update(issues)
+                try:
+                    is_strong, issues = check_single_password(password)
+                    results.append({
+                        'password': password,
+                        'is_strong': is_strong,
+                        'issues': issues
+                    })
+                    if is_strong:
+                        strong_count += 1
+                        strong_passwords_list.append(password)
+                    else:
+                        issues_counter.update(issues)
+                except Exception as pwd_error:
+                    logger.error(f"Error checking password '{password}': {pwd_error}")
+                    # Skip problematic passwords
+                    continue
             
             weak_count = total_passwords - strong_count
             
             # Tính phần trăm
-            strong_percentage = round((strong_count/total_passwords*100), 1)
-            weak_percentage = round((weak_count/total_passwords*100), 1)
+            strong_percentage = round((strong_count/total_passwords*100), 1) if total_passwords > 0 else 0
+            weak_percentage = round((weak_count/total_passwords*100), 1) if total_passwords > 0 else 0
             
             # Get common issues (sắp xếp theo tần suất)
             common_issues = [
@@ -725,8 +744,9 @@ def check_password_file_api():
             sample_weak = weak_passwords[:10]
             
             # Tạo timestamp cho báo cáo
-            from datetime import datetime
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            logger.info(f"Analysis completed: {strong_count}/{total_passwords} strong passwords")
             
             return jsonify({
                 'timestamp': timestamp,
@@ -738,17 +758,20 @@ def check_password_file_api():
                 'weak_percentage': weak_percentage,
                 'common_issues': common_issues,
                 'sample_weak_passwords': sample_weak,
-                'strong_passwords_list': strong_passwords_list,  # THÊM DÒNG NÀY
+                'strong_passwords_list': strong_passwords_list,
                 'success': True
             })
         
         finally:
             # Clean up temporary file
-            if os.path.exists(temp_filename):
+            if 'temp_filename' in locals() and os.path.exists(temp_filename):
                 os.unlink(temp_filename)
+                logger.info(f"Cleaned up temp file: {temp_filename}")
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error in check_password_file_api: {str(e)}")
+        logger.error(f"Exception traceback: {traceback.format_exc()}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 # THÊM ENDPOINT MỚI ĐỂ DOWNLOAD STRONG PASSWORDS
 @app.route('/download_strong_passwords', methods=['POST'])
@@ -1174,6 +1197,62 @@ def create_entropy_chart_api():
     
     except Exception as e:
         logger.error(f"Error in create_entropy_chart: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/compare_password_strength', methods=['POST'])
+def compare_password_strength_api():
+    try:
+        # Kiểm tra các file được upload
+        required_files = ['model1_file', 'model2_file', 'model3_file']
+        uploaded_files = []
+        model_names = []
+        
+        for i, file_key in enumerate(required_files):
+            if file_key in request.files and request.files[file_key].filename != '':
+                uploaded_files.append(request.files[file_key])
+                # Lấy tên model từ form hoặc dùng tên file
+                model_name = request.form.get(f'model{i+1}_name', request.files[file_key].filename)
+                model_names.append(model_name)
+        
+        if len(uploaded_files) < 2:
+            return jsonify({'error': 'Cần ít nhất 2 file để so sánh'}), 400
+        
+        # Lưu các file tạm thời
+        temp_files = []
+        try:
+            for file in uploaded_files:
+                with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as temp_file:
+                    content = file.read().decode('utf-8')
+                    temp_file.write(content)
+                    temp_files.append(temp_file.name)
+            
+            # Thực hiện so sánh
+            comparison_result = analyze_multiple_files_for_comparison(temp_files, model_names)
+            
+            if 'error' in comparison_result:
+                return jsonify(comparison_result), 400
+            
+            # Tạo biểu đồ so sánh
+            try:
+                chart_base64 = create_strength_comparison_chart(comparison_result, save_to_file=False)
+                if chart_base64:
+                    comparison_result['chart'] = chart_base64
+                    logger.info("Strength comparison chart generated successfully")
+                else:
+                    logger.warning("Failed to generate strength comparison chart")
+            except Exception as chart_error:
+                logger.error(f"Strength comparison chart generation error: {chart_error}")
+            
+            return jsonify(comparison_result)
+            
+        finally:
+            # Cleanup temporary files
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
+    
+    except Exception as e:
+        logger.error(f"Error in compare_password_strength: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 # ...existing code...

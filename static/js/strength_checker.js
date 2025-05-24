@@ -1,4 +1,3 @@
-/* filepath: /mnt/d/Documents/UIT/Nam_3/HK2/NT522_AI-ATTT/PPGT-GEN/static/js/strength_checker.js */
 const form = document.getElementById('strength-form');
 const submitBtn = document.getElementById('submit-btn');
 const cancelBtn = document.getElementById('cancel-btn');
@@ -9,10 +8,18 @@ const togglePasswordBtn = document.getElementById('toggle-password');
 const modeButtons = document.querySelectorAll('.mode-btn');
 const modeInfos = document.querySelectorAll('.mode-info');
 
+// Elements cho compare mode
+const model1NameInput = document.getElementById('model1-name');
+const model1FileInput = document.getElementById('model1-file');
+const model2NameInput = document.getElementById('model2-name');
+const model2FileInput = document.getElementById('model2-file');
+const model3NameInput = document.getElementById('model3-name');
+const model3FileInput = document.getElementById('model3-file');
+
 let currentMode = 'single';
 let checkStartTime = null;
 let isProcessing = false;
-let currentController = null; // AbortController cho fetch
+let currentController = null;
 
 // Thêm biến global để lưu trữ mật khẩu mạnh
 let strongPasswordsData = {
@@ -45,99 +52,141 @@ function switchMode(mode) {
   // Show/hide form elements
   const singleForm = document.querySelector('.single-mode-form');
   const fileForm = document.querySelector('.file-mode-form');
+  const compareForm = document.querySelector('.compare-mode-form');
+  
+  // Hide all forms first
+  if (singleForm) singleForm.style.display = 'none';
+  if (fileForm) fileForm.style.display = 'none';
+  if (compareForm) compareForm.style.display = 'none';
+  
+  // Reset required attributes
+  if (passwordInput) passwordInput.required = false;
+  if (fileInput) fileInput.required = false;
+  if (model1FileInput) model1FileInput.required = false;
+  if (model2FileInput) model2FileInput.required = false;
   
   if (mode === 'single') {
-    singleForm.style.display = 'block';
-    fileForm.style.display = 'none';
-    passwordInput.required = true;
-    fileInput.required = false;
+    if (singleForm) singleForm.style.display = 'block';
+    if (passwordInput) passwordInput.required = true;
     btnText.textContent = 'Kiểm tra độ mạnh';
-  } else {
-    singleForm.style.display = 'none';
-    fileForm.style.display = 'block';
-    passwordInput.required = false;
-    fileInput.required = true;
+  } else if (mode === 'file') {
+    if (fileForm) fileForm.style.display = 'block';
+    if (fileInput) fileInput.required = true;
     btnText.textContent = 'Phân tích file';
+  } else if (mode === 'compare') {
+    if (compareForm) compareForm.style.display = 'block';
+    if (model1FileInput) model1FileInput.required = true;
+    if (model2FileInput) model2FileInput.required = true;
+    btnText.textContent = 'So sánh model';
   }
 }
 
 // Password toggle functionality
-togglePasswordBtn.addEventListener('click', () => {
-  const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-  passwordInput.setAttribute('type', type);
-  togglePasswordBtn.textContent = type === 'password' ? '👁️ Hiện' : '🙈 Ẩn';
-});
+if (togglePasswordBtn) {
+  togglePasswordBtn.addEventListener('click', () => {
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    togglePasswordBtn.textContent = type === 'password' ? '👁️ Hiện' : '🙈 Ẩn';
+  });
+}
 
 // Cancel button functionality
-cancelBtn.addEventListener('click', async () => {
-  if (!isProcessing) return;
-  
-  try {
-    // Abort current fetch request
-    if (currentController) {
-      currentController.abort();
+if (cancelBtn) {
+  cancelBtn.addEventListener('click', async () => {
+    if (!isProcessing) return;
+    
+    try {
+      if (currentController) {
+        currentController.abort();
+      }
+      
+      resetToInitialState();
+      
+      const resultElement = document.getElementById('result');
+      const statusBadge = document.getElementById('status-badge');
+      
+      resultElement.textContent = `❌ Quá trình kiểm tra đã bị hủy bởi người dùng\n\nThời gian hủy: ${new Date().toLocaleString()}`;
+      statusBadge.textContent = 'Đã hủy';
+      statusBadge.className = 'status-badge status-error';
+      
+      const checkTime = checkStartTime ? 
+        Math.round((Date.now() - checkStartTime) / 1000) : 0;
+      document.getElementById('check-time').textContent = `${checkTime}s`;
+      
+      showResult();
+      
+    } catch (error) {
+      console.error('Error during cancellation:', error);
     }
-    
-    // Reset UI state
-    resetToInitialState();
-    
-    // Show cancelled message
-    const resultElement = document.getElementById('result');
-    const statusBadge = document.getElementById('status-badge');
-    
-    resultElement.textContent = `❌ Quá trình kiểm tra đã bị hủy bởi người dùng\n\nThời gian hủy: ${new Date().toLocaleString()}`;
-    statusBadge.textContent = 'Đã hủy';
-    statusBadge.className = 'status-badge status-error';
-    
-    const checkTime = checkStartTime ? 
-      Math.round((Date.now() - checkStartTime) / 1000) : 0;
-    document.getElementById('check-time').textContent = `${checkTime}s`;
-    
-    showResult();
-    
-  } catch (error) {
-    console.error('Error during cancellation:', error);
-  }
-});
+  });
+}
 
 function showResult() {
   document.getElementById('result-placeholder').classList.add('hidden');
   document.getElementById('result-content').classList.add('show');
   
-  // Expand container for better PC experience
   document.querySelector('.container').classList.add('has-result');
   
   // Update mode indicator
   const modeIndicator = document.getElementById('mode-indicator');
-  const modeIcon = currentMode === 'single' ? '🔒' : '📄';
-  const modeText = currentMode === 'single' ? 'Đơn' : 'File';
-  modeIndicator.textContent = `${modeIcon} ${modeText}`;
-}
-
-function hideResult() {
-  document.getElementById('result-placeholder').classList.remove('hidden');
-  document.getElementById('result-content').classList.remove('show');
+  let modeIcon, modeText;
   
-  // Remove expanded layout
-  document.querySelector('.container').classList.remove('has-result');
+  switch(currentMode) {
+    case 'single':
+      modeIcon = '🔒';
+      modeText = 'Đơn';
+      break;
+    case 'file':
+      modeIcon = '📄';
+      modeText = 'File';
+      break;
+    case 'compare':
+      modeIcon = '⚖️';
+      modeText = 'So sánh';
+      break;
+    default:
+      modeIcon = '🔒';
+      modeText = 'Đơn';
+  }
+  
+  modeIndicator.textContent = `${modeIcon} ${modeText}`;
 }
 
 function setProcessingState(processing) {
   isProcessing = processing;
   
   if (processing) {
-    // Show loading state
     submitBtn.classList.add('loading');
     submitBtn.disabled = true;
-    cancelBtn.classList.add('show');
-    btnText.textContent = currentMode === 'single' ? 'Đang kiểm tra...' : 'Đang phân tích...';
+    if (cancelBtn) cancelBtn.classList.add('show');
+    
+    switch(currentMode) {
+      case 'single':
+        btnText.textContent = 'Đang kiểm tra...';
+        break;
+      case 'file':
+        btnText.textContent = 'Đang phân tích...';
+        break;
+      case 'compare':
+        btnText.textContent = 'Đang so sánh...';
+        break;
+    }
   } else {
-    // Reset button state
     submitBtn.classList.remove('loading');
     submitBtn.disabled = false;
-    cancelBtn.classList.remove('show');
-    const modeText = currentMode === 'single' ? 'Kiểm tra độ mạnh' : 'Phân tích file';
-    btnText.textContent = modeText;
+    if (cancelBtn) cancelBtn.classList.remove('show');
+    
+    switch(currentMode) {
+      case 'single':
+        btnText.textContent = 'Kiểm tra độ mạnh';
+        break;
+      case 'file':
+        btnText.textContent = 'Phân tích file';
+        break;
+      case 'compare':
+        btnText.textContent = 'So sánh model';
+        break;
+    }
   }
 }
 
@@ -147,19 +196,18 @@ function resetToInitialState() {
   currentController = null;
 }
 
+// Main form submission handler
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   
-  if (isProcessing) return; // Prevent double submission
+  if (isProcessing) return;
   
   checkStartTime = Date.now();
   setProcessingState(true);
   
-  // Create AbortController for cancellation
   currentController = new AbortController();
 
   try {
-    let data = {};
     let endpoint = '';
     let requestOptions = {
       method: 'POST',
@@ -167,35 +215,72 @@ form.addEventListener('submit', async (e) => {
     };
     
     if (currentMode === 'single') {
-      data = { password: passwordInput.value };
+      if (!passwordInput.value.trim()) {
+        throw new Error('Vui lòng nhập mật khẩu');
+      }
+      
+      const data = { password: passwordInput.value };
       endpoint = '/check_single_password';
       requestOptions.headers = {'Content-Type': 'application/json'};
       requestOptions.body = JSON.stringify(data);
-    } else {
-      // Handle file upload
+      
+    } else if (currentMode === 'file') {
+      if (!fileInput.files[0]) {
+        throw new Error('Vui lòng chọn file để phân tích');
+      }
+      
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
       endpoint = '/check_password_file';
       requestOptions.body = formData;
+      
+    } else if (currentMode === 'compare') {
+      if (!model1FileInput.files[0] || !model2FileInput.files[0]) {
+        throw new Error('Vui lòng chọn ít nhất 2 file để so sánh');
+      }
+      
+      const formData = new FormData();
+      formData.append('model1_file', model1FileInput.files[0]);
+      formData.append('model1_name', model1NameInput.value || 'Model 1');
+      formData.append('model2_file', model2FileInput.files[0]);
+      formData.append('model2_name', model2NameInput.value || 'Model 2');
+      
+      if (model3FileInput.files[0]) {
+        formData.append('model3_file', model3FileInput.files[0]);
+        formData.append('model3_name', model3NameInput.value || 'Model 3');
+      }
+      
+      endpoint = '/compare_password_strength';
+      requestOptions.body = formData;
     }
+
+    console.log('Sending request to:', endpoint, 'Mode:', currentMode);
 
     const res = await fetch(endpoint, requestOptions);
     
     if (!res.ok) {
-      throw new Error(`HTTP Error: ${res.status}`);
+      const errorText = await res.text();
+      console.error('Response error:', res.status, errorText);
+      throw new Error(`HTTP Error: ${res.status} - ${errorText}`);
     }
     
     const result = await res.json();
+    console.log('Received result:', result);
+    
+    if (result.error) {
+      throw new Error(result.error);
+    }
+    
     displayResult(result, true);
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      // Request was cancelled, don't show error
       console.log('Request was cancelled');
       return;
     }
     
-    // Show error result
+    console.error('Strength analysis error:', error);
+    
     const checkTime = checkStartTime ? 
       Math.round((Date.now() - checkStartTime) / 1000) : 0;
     document.getElementById('check-time').textContent = `${checkTime}s`;
@@ -210,8 +295,236 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+function displayResult(result, isSuccess) {
+  const checkTime = checkStartTime ? 
+    Math.round((Date.now() - checkStartTime) / 1000) : 0;
+  document.getElementById('check-time').textContent = `${checkTime}s`;
+  
+  const resultElement = document.getElementById('result');
+  const statusBadge = document.getElementById('status-badge');
+  const chartBtn = document.getElementById('chart-btn');
+  const chartImage = document.getElementById('chart-image');
+  const chartContainer = document.getElementById('chart-container');
+  
+  // Handle chart display
+  if (result.chart) {
+    console.log('Chart data found, displaying chart...');
+    
+    // Ensure chart button exists and is visible
+    if (chartBtn) {
+      chartBtn.style.display = 'inline-block';
+    }
+    
+    // Set chart image
+    if (chartImage) {
+      chartImage.src = `data:image/png;base64,${result.chart}`;
+      console.log('Chart image src set');
+    }
+    
+    // Auto show chart for compare mode
+    if (currentMode === 'compare' && chartContainer) {
+      setTimeout(() => {
+        chartContainer.style.display = 'block';
+        if (chartBtn) chartBtn.innerHTML = '📊 Ẩn biểu đồ';
+        console.log('Chart container displayed');
+      }, 500);
+    }
+  } else {
+    console.log('No chart data found');
+    if (chartBtn) chartBtn.style.display = 'none';
+    if (chartContainer) chartContainer.style.display = 'none';
+  }
+  
+  if (currentMode === 'single') {
+    // Single password result
+    let resultText = `🔐 KIỂM TRA MẬT KHẨU ĐƠN\n`;
+    resultText += `${'='.repeat(40)}\n\n`;
+    resultText += `Mật khẩu: ${result.password}\n\n`;
+    resultText += `Trạng thái: ${result.is_strong ? '✅ Mạnh' : '❌ Yếu'}\n\n`;
+    
+    if (!result.is_strong && result.issues) {
+      resultText += `🔍 Các vấn đề cần khắc phục:\n`;
+      result.issues.forEach((issue, index) => {
+        resultText += `  ${index + 1}. ${issue}\n`;
+      });
+      resultText += `\n💡 Khuyến nghị: Sửa các vấn đề trên để tăng độ bảo mật mật khẩu.`;
+    } else {
+      resultText += `✨ Mật khẩu của bạn đáp ứng các tiêu chuẩn bảo mật cơ bản!`;
+    }
+    
+    resultElement.textContent = resultText;
+    statusBadge.textContent = result.is_strong ? 'Mạnh' : 'Yếu';
+    statusBadge.className = result.is_strong ? 'status-badge status-strong' : 'status-badge status-weak';
+    
+    // Hide strong passwords section for single mode
+    const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
+    const strongPasswordsInfo = document.getElementById('strong-passwords-info');
+    if (strongPasswordsBtn) strongPasswordsBtn.style.display = 'none';
+    if (strongPasswordsInfo) strongPasswordsInfo.style.display = 'none';
+    
+  } else if (currentMode === 'file') {
+    // File analysis result
+    updateStrongPasswordsSection(result);
+    
+    let resultText = `📄 BÁO CÁO PHÂN TÍCH FILE MẬT KHẨU\n`;
+    resultText += `Thời gian: ${result.timestamp}\n`;
+    resultText += `File nguồn: ${result.filename}\n`;
+    resultText += `${'='.repeat(50)}\n\n`;
+    
+    resultText += `📊 THỐNG KÊ TỔNG QUAN:\n`;
+    resultText += `Tổng số mật khẩu: ${result.total_passwords}\n`;
+    resultText += `Mật khẩu mạnh: ${result.strong_passwords} (${result.strong_percentage}%)\n`;
+    resultText += `Mật khẩu yếu: ${result.weak_passwords} (${result.weak_percentage}%)\n\n`;
+    
+    // Thống kê chi tiết các vấn đề
+    resultText += `🔍 THỐNG KÊ CHI TIẾT CÁC VẤN ĐỀ:\n`;
+    if (result.common_issues && result.common_issues.length > 0) {
+      result.common_issues.forEach(issue => {
+        resultText += `  - ${issue.issue}: ${issue.count} lần\n`;
+      });
+    } else {
+      resultText += `  Không có vấn đề nào được ghi nhận.\n`;
+    }
+    
+    resultElement.textContent = resultText;
+    
+    const strongPercent = result.strong_percentage;
+    if (strongPercent >= 70) {
+      statusBadge.textContent = 'Tốt';
+      statusBadge.className = 'status-badge status-strong';
+    } else if (strongPercent >= 40) {
+      statusBadge.textContent = 'Trung bình';
+      statusBadge.className = 'status-badge status-weak';
+    } else {
+      statusBadge.textContent = 'Yếu';
+      statusBadge.className = 'status-badge status-error';
+    }
+    
+  } else if (currentMode === 'compare') {
+    // Comparison result
+    let resultText = `⚖️ BÁO CÁO SO SÁNH MODEL\n`;
+    resultText += `Thời gian: ${result.timestamp}\n`;
+    resultText += `Số model so sánh: ${result.total_models}\n`;
+    resultText += `${'='.repeat(50)}\n\n`;
+    
+    resultText += `🏆 BẢNG XẾP HẠNG:\n`;
+    result.models.forEach((model, index) => {
+      const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+      resultText += `${medal} ${model.model_name}: ${model.strong_percentage}% mật khẩu mạnh\n`;
+      resultText += `   Tổng: ${model.total_passwords.toLocaleString()} | Mạnh: ${model.strong_count.toLocaleString()} | Yếu: ${model.weak_count.toLocaleString()}\n\n`;
+    });
+    
+    // Chi tiết từng model
+    resultText += `📊 CHI TIẾT TỪNG MODEL:\n`;
+    result.models.forEach(model => {
+      resultText += `\n▶️ ${model.model_name}:\n`;
+      resultText += `  📈 Tỷ lệ mạnh: ${model.strong_percentage}%\n`;
+      resultText += `  📏 Độ dài TB (mạnh): ${model.avg_strong_length} ký tự\n`;
+      resultText += `  📏 Độ dài TB (tổng): ${model.avg_total_length} ký tự\n`;
+      resultText += `  🔤 Ký tự hoa TB: ${model.strong_char_stats.avg_uppercase}\n`;
+      resultText += `  🔡 Ký tự thường TB: ${model.strong_char_stats.avg_lowercase}\n`;
+      resultText += `  🔢 Chữ số TB: ${model.strong_char_stats.avg_digits}\n`;
+      resultText += `  🔣 Ký tự đặc biệt TB: ${model.strong_char_stats.avg_special}\n`;
+    });
+    
+    // Thông báo về biểu đồ
+    if (result.chart) {
+      resultText += `\n📊 BIỂU ĐỒ SO SÁNH:\n`;
+      resultText += `✅ Biểu đồ chi tiết đã được tạo - nhấn nút "📊 Biểu đồ" để xem\n`;
+      resultText += `   • Strong password percentage comparison\n`;
+      resultText += `   • Total password count comparison\n`;
+      resultText += `   • Password length analysis\n`;
+      resultText += `   • Character distribution comparison\n`;
+    }
+    
+    resultElement.textContent = resultText;
+    
+    // Set status based on best model performance
+    const bestPercentage = result.best_model ? result.best_model.strong_percentage : 0;
+    if (bestPercentage >= 70) {
+      statusBadge.textContent = 'Xuất sắc';
+      statusBadge.className = 'status-badge status-strong';
+    } else if (bestPercentage >= 50) {
+      statusBadge.textContent = 'Tốt';
+      statusBadge.className = 'status-badge status-weak';
+    } else {
+      statusBadge.textContent = 'Cần cải thiện';
+      statusBadge.className = 'status-badge status-error';
+    }
+    
+    // Hide strong passwords section for compare mode
+    const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
+    const strongPasswordsInfo = document.getElementById('strong-passwords-info');
+    if (strongPasswordsBtn) strongPasswordsBtn.style.display = 'none';
+    if (strongPasswordsInfo) strongPasswordsInfo.style.display = 'none';
+  }
+  
+  showResult();
+}
+
+// Chart functionality
+function toggleChart() {
+  const chartContainer = document.getElementById('chart-container');
+  const chartBtn = document.getElementById('chart-btn');
+  
+  if (!chartContainer || !chartBtn) return;
+  
+  if (chartContainer.style.display === 'none') {
+    chartContainer.style.display = 'block';
+    chartBtn.innerHTML = '📊 Ẩn biểu đồ';
+  } else {
+    hideChart();
+  }
+}
+
+function hideChart() {
+  const chartContainer = document.getElementById('chart-container');
+  const chartBtn = document.getElementById('chart-btn');
+  
+  if (!chartContainer || !chartBtn) return;
+  
+  chartContainer.classList.add('hiding');
+  setTimeout(() => {
+    chartContainer.style.display = 'none';
+    chartContainer.classList.remove('hiding');
+    chartBtn.innerHTML = '📊 Biểu đồ';
+  }, 300);
+}
+
+// Strong passwords functionality
+function updateStrongPasswordsSection(result) {
+  const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
+  const strongPasswordsInfo = document.getElementById('strong-passwords-info');
+  const strongCount = document.getElementById('strong-count');
+  
+  if (!strongPasswordsBtn || !strongPasswordsInfo || !strongCount) return;
+  
+  if (result.strong_passwords_list && result.strong_passwords_list.length > 0) {
+    strongPasswordsData = {
+      passwords: result.strong_passwords_list,
+      filename: result.filename,
+      count: result.strong_passwords_list.length
+    };
+    
+    strongPasswordsBtn.style.display = 'inline-block';
+    strongCount.textContent = `${strongPasswordsData.count} mật khẩu`;
+    
+    const preview = document.getElementById('strong-passwords-preview');
+    const previewBtn = document.getElementById('preview-strong-btn');
+    if (preview) preview.style.display = 'none';
+    if (previewBtn) previewBtn.innerHTML = '👁️ Xem trước';
+    strongPasswordsInfo.style.display = 'none';
+  } else {
+    strongPasswordsBtn.style.display = 'none';
+    strongPasswordsInfo.style.display = 'none';
+    strongPasswordsData = { passwords: [], filename: '', count: 0 };
+  }
+}
+
 function toggleStrongPasswordsInfo() {
   const info = document.getElementById('strong-passwords-info');
+  if (!info) return;
+  
   if (info.style.display === 'none') {
     info.style.display = 'block';
   } else {
@@ -222,6 +535,8 @@ function toggleStrongPasswordsInfo() {
 function toggleStrongPasswordsPreview() {
   const preview = document.getElementById('strong-passwords-preview');
   const btn = document.getElementById('preview-strong-btn');
+  
+  if (!preview || !btn) return;
   
   if (preview.style.display === 'none') {
     preview.style.display = 'block';
@@ -235,6 +550,7 @@ function toggleStrongPasswordsPreview() {
 
 function displayStrongPasswordsList() {
   const listContainer = document.getElementById('strong-passwords-list');
+  if (!listContainer) return;
   
   if (strongPasswordsData.passwords.length === 0) {
     listContainer.innerHTML = '<p class="no-passwords">Không có mật khẩu mạnh nào.</p>';
@@ -288,11 +604,9 @@ async function downloadStrongPasswords() {
       throw new Error(`HTTP Error: ${response.status}`);
     }
     
-    // Tạo blob từ response
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     
-    // Tạo link download
     const a = document.createElement('a');
     a.href = url;
     a.download = `strong_passwords_${Date.now()}.txt`;
@@ -305,13 +619,14 @@ async function downloadStrongPasswords() {
     
     showNotification(`Đã tải về ${strongPasswordsData.count} mật khẩu mạnh!`, 'success');
     
-    // Update button text temporarily
     const btn = document.getElementById('download-strong-btn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '✅ Đã tải về!';
-    setTimeout(() => {
-      btn.innerHTML = originalText;
-    }, 2000);
+    if (btn) {
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '✅ Đã tải về!';
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+      }, 2000);
+    }
     
   } catch (error) {
     console.error('Error downloading strong passwords:', error);
@@ -320,12 +635,10 @@ async function downloadStrongPasswords() {
 }
 
 function showNotification(message, type = 'info') {
-  // Tạo notification element
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
   notification.textContent = message;
   
-  // Style cho notification
   notification.style.cssText = `
     position: fixed;
     top: 20px;
@@ -340,7 +653,6 @@ function showNotification(message, type = 'info') {
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   `;
   
-  // Set màu dựa vào type
   switch(type) {
     case 'success':
       notification.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
@@ -354,12 +666,10 @@ function showNotification(message, type = 'info') {
   
   document.body.appendChild(notification);
   
-  // Animate in
   setTimeout(() => {
     notification.style.transform = 'translateX(0)';
   }, 10);
   
-  // Remove after 3 seconds
   setTimeout(() => {
     notification.style.transform = 'translateX(100%)';
     setTimeout(() => {
@@ -368,130 +678,6 @@ function showNotification(message, type = 'info') {
       }
     }, 300);
   }, 3000);
-}
-
-function updateStrongPasswordsSection(result) {
-  const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
-  const strongPasswordsInfo = document.getElementById('strong-passwords-info');
-  const strongCount = document.getElementById('strong-count');
-  
-  if (result.strong_passwords_list && result.strong_passwords_list.length > 0) {
-    // Cập nhật dữ liệu global
-    strongPasswordsData = {
-      passwords: result.strong_passwords_list,
-      filename: result.filename,
-      count: result.strong_passwords_list.length
-    };
-    
-    // Hiển thị button và info
-    strongPasswordsBtn.style.display = 'inline-block';
-    strongCount.textContent = `${strongPasswordsData.count} mật khẩu`;
-    
-    // Reset preview state
-    const preview = document.getElementById('strong-passwords-preview');
-    const previewBtn = document.getElementById('preview-strong-btn');
-    preview.style.display = 'none';
-    previewBtn.innerHTML = '👁️ Xem trước';
-    strongPasswordsInfo.style.display = 'none';
-  } else {
-    // Ẩn button nếu không có mật khẩu mạnh
-    strongPasswordsBtn.style.display = 'none';
-    strongPasswordsInfo.style.display = 'none';
-    strongPasswordsData = { passwords: [], filename: '', count: 0 };
-  }
-}
-
-// Cập nhật hàm displayResult để bao gồm strong passwords
-function displayResult(result, isSuccess) {
-  if (currentMode === 'file') {
-    window.lastFileResult = result;
-    // Cập nhật section mật khẩu mạnh
-    updateStrongPasswordsSection(result);
-  } else {
-    // Ẩn button cho single mode
-    document.getElementById('strong-passwords-btn').style.display = 'none';
-    document.getElementById('strong-passwords-info').style.display = 'none';
-  }
-  
-  // Calculate check time
-  const checkTime = checkStartTime ? 
-    Math.round((Date.now() - checkStartTime) / 1000) : 0;
-  document.getElementById('check-time').textContent = `${checkTime}s`;
-  
-  // Show result
-  const resultElement = document.getElementById('result');
-  const statusBadge = document.getElementById('status-badge');
-  
-  if (currentMode === 'single') {
-    // Single password result
-    let resultText = `🔐 KIỂM TRA MẬT KHẨU ĐƠN\n`;
-    resultText += `${'='.repeat(40)}\n\n`;
-    resultText += `Mật khẩu: ${result.password}\n\n`;
-    resultText += `Trạng thái: ${result.is_strong ? '✅ Mạnh' : '❌ Yếu'}\n\n`;
-    
-    if (!result.is_strong && result.issues) {
-      resultText += `🔍 Các vấn đề cần khắc phục:\n`;
-      result.issues.forEach((issue, index) => {
-        resultText += `  ${index + 1}. ${issue}\n`;
-      });
-      resultText += `\n💡 Khuyến nghị: Sửa các vấn đề trên để tăng độ bảo mật mật khẩu.`;
-    } else {
-      resultText += `✨ Mật khẩu của bạn đáp ứng các tiêu chuẩn bảo mật cơ bản!`;
-    }
-    
-    resultElement.textContent = resultText;
-    statusBadge.textContent = result.is_strong ? 'Mạnh' : 'Yếu';
-    statusBadge.className = result.is_strong ? 'status-badge status-strong' : 'status-badge status-weak';
-  } else {
-    // File analysis result - Hiển thị đầy đủ như save_results_to_file
-    let resultText = `📄 BÁO CÁO PHÂN TÍCH FILE MẬT KHẨU\n`;
-    resultText += `Thời gian: ${result.timestamp}\n`;
-    resultText += `File nguồn: ${result.filename}\n`;
-    resultText += `${'='.repeat(50)}\n\n`;
-    
-    resultText += `📊 THỐNG KÊ TỔNG QUAN:\n`;
-    resultText += `Tổng số mật khẩu: ${result.total_passwords}\n`;
-    resultText += `Mật khẩu mạnh: ${result.strong_passwords} (${result.strong_percentage}%)\n`;
-    resultText += `Mật khẩu yếu: ${result.weak_passwords} (${result.weak_percentage}%)\n\n`;
-    
-    // Thống kê chi tiết các vấn đề ở mật khẩu yếu
-    resultText += `🔍 THỐNG KÊ CHI TIẾT CÁC VẤN ĐỀ Ở MẬT KHẨU YẾU:\n`;
-    if (result.common_issues && result.common_issues.length > 0) {
-      result.common_issues.forEach(issue => {
-        resultText += `  - ${issue.issue}: ${issue.count} lần\n`;
-      });
-    } else {
-      resultText += `  Không có vấn đề nào được ghi nhận.\n`;
-    }
-    resultText += `\n`;
-    
-    // Mẫu mật khẩu yếu (nếu có)
-    if (result.sample_weak_passwords && result.sample_weak_passwords.length > 0) {
-      resultText += `📝 MẪU MẬT KHẨU YẾU (${Math.min(10, result.sample_weak_passwords.length)} mẫu đầu tiên):\n`;
-      result.sample_weak_passwords.slice(0, 10).forEach((pwd, index) => {
-        resultText += `  ${index + 1}. ${pwd.password}\n`;
-        resultText += `     Vấn đề: ${pwd.issues.join(', ')}\n`;
-      });
-      resultText += `\n💡 Khuyến nghị: Tránh sử dụng các mật khẩu có pattern tương tự.`;
-    }
-    
-    resultElement.textContent = resultText;
-    
-    // Đặt status badge dựa trên tỷ lệ mật khẩu mạnh
-    const strongPercent = result.strong_percentage;
-    if (strongPercent >= 70) {
-      statusBadge.textContent = 'Tốt';
-      statusBadge.className = 'status-badge status-strong';
-    } else if (strongPercent >= 40) {
-      statusBadge.textContent = 'Trung bình';
-      statusBadge.className = 'status-badge status-weak';
-    } else {
-      statusBadge.textContent = 'Yếu';
-      statusBadge.className = 'status-badge status-error';
-    }
-  }
-  
-  showResult();
 }
 
 // Copy button functionality
@@ -535,16 +721,23 @@ document.getElementById('download-btn').addEventListener('click', async () => {
   }
 });
 
-// Thêm event listeners sau khi DOM loaded
+// Initialize event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
   // Strong passwords button functionality
   const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
   const previewStrongBtn = document.getElementById('preview-strong-btn');
   const downloadStrongBtn = document.getElementById('download-strong-btn');
   
-  strongPasswordsBtn.addEventListener('click', toggleStrongPasswordsInfo);
-  previewStrongBtn.addEventListener('click', toggleStrongPasswordsPreview);
-  downloadStrongBtn.addEventListener('click', downloadStrongPasswords);
+  if (strongPasswordsBtn) strongPasswordsBtn.addEventListener('click', toggleStrongPasswordsInfo);
+  if (previewStrongBtn) previewStrongBtn.addEventListener('click', toggleStrongPasswordsPreview);
+  if (downloadStrongBtn) downloadStrongBtn.addEventListener('click', downloadStrongPasswords);
+  
+  // Chart functionality
+  const chartBtn = document.getElementById('chart-btn');
+  const chartToggleBtn = document.getElementById('chart-toggle-btn');
+  
+  if (chartBtn) chartBtn.addEventListener('click', toggleChart);
+  if (chartToggleBtn) chartToggleBtn.addEventListener('click', hideChart);
 });
 
 // Initialize default mode

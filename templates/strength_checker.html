@@ -26,6 +26,10 @@
           <span class="mode-icon">📄</span>
           <span class="mode-text">Kiểm tra file</span>
         </button>
+        <button class="mode-btn" data-mode="compare">
+          <span class="mode-icon">⚖️</span>
+          <span class="mode-text">So sánh model</span>
+        </button>
       </div>
     </div>
 
@@ -41,6 +45,10 @@
           <div class="mode-info file-mode">
             <h3>📄 Kiểm tra file mật khẩu</h3>
             <p>Upload file chứa danh sách mật khẩu để phân tích hàng loạt.</p>
+          </div>
+          <div class="mode-info compare-mode">
+            <h3>⚖️ So sánh model</h3>
+            <p>Upload 2-3 file từ các model khác nhau để so sánh chất lượng mật khẩu mạnh.</p>
           </div>
         </div>
 
@@ -58,6 +66,29 @@
           <label>📁 File mật khẩu</label>
           <input type="file" id="password-file" accept=".txt,.csv" placeholder="Chọn file chứa danh sách mật khẩu">
           <small class="file-hint">Hỗ trợ file .txt với mỗi mật khẩu trên một dòng</small>
+        </div>
+
+        <!-- Compare mode -->
+        <div class="compare-mode-form" style="display: none;">
+          <div class="form-group">
+            <label>🥇 Model 1</label>
+            <input type="text" id="model1-name" placeholder="Tên model 1 (VD: PassGPT)" value="PagPassGPT">
+            <input type="file" id="model1-file" accept=".txt" required>
+          </div>
+          
+          <div class="form-group">
+            <label>🥈 Model 2</label>
+            <input type="text" id="model2-name" placeholder="Tên model 2 (VD: PassGAN)" value="PassGPT">
+            <input type="file" id="model2-file" accept=".txt" required>
+          </div>
+          
+          <div class="form-group">
+            <label>🥉 Model 3 (tùy chọn)</label>
+            <input type="text" id="model3-name" placeholder="Tên model 3 (VD: John the Ripper)" value="PassGAN">
+            <input type="file" id="model3-file" accept=".txt">
+          </div>
+          
+          <small class="file-hint">Upload file mật khẩu từ các model để so sánh chất lượng</small>
         </div>
 
         <div class="button-container">
@@ -138,6 +169,17 @@
             </div>
           </div>
           
+          <!-- THÊM: Chart container -->
+          <div class="chart-container" id="chart-container" style="display: none;">
+            <div class="chart-header">
+              <h4>📊 Biểu đồ so sánh strength</h4>
+              <button class="chart-toggle-btn" id="chart-toggle-btn" title="Ẩn biểu đồ">✕</button>
+            </div>
+            <div class="chart-content">
+              <img id="chart-image" src="" alt="Strength Comparison Chart" style="max-width: 100%; height: auto;">
+            </div>
+          </div>
+
           <pre id="result"></pre>
         </div>
       </div>

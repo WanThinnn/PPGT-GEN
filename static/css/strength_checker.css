@@ -87,7 +87,7 @@ body {
   border-radius: 12px;
   padding: 4px;
   gap: 4px;
-  max-width: 400px;
+  max-width: 600px;
   margin: 0 auto;
 }
 
@@ -782,4 +782,156 @@ input[type="file"]:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Mode Toggle - Update for 3 buttons */
+.mode-toggle {
+  display: flex;
+  background: #f0f0f0;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Compare mode styling */
+.compare-mode {
+  background: linear-gradient(135deg, #fff0f8 0%, #ffe8f3 100%);
+  border-color: #ffc0e0;
+}
+
+.compare-mode-form {
+  display: none;
+}
+
+.compare-mode-form .form-group {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border: 1px solid #e5e8ff;
+  border-radius: 12px;
+}
+
+.compare-mode-form .form-group label {
+  color: #5856d6;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.compare-mode-form input[type="text"] {
+  margin-bottom: 8px;
+  border-color: #e5e8ff;
+}
+
+.compare-mode-form input[type="text"]:focus {
+  border-color: #5856d6;
+  box-shadow: 0 0 0 4px rgba(88, 86, 214, 0.1);
+}
+
+.compare-mode-form input[type="file"] {
+  border-color: #e5e8ff !important;
+}
+
+.compare-mode-form input[type="file"]:hover {
+  border-color: #5856d6 !important;
+  background: #f8f9ff !important;
+}
+
+/* Chart styles */
+.chart-container {
+  margin-bottom: 20px;
+  background: white;
+  border: 1px solid #e5e5e7;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.3s ease;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f0f8f0 0%, #e8f5e8 100%);
+  border-bottom: 1px solid #e5e5e7;
+}
+
+.chart-header h4 {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.chart-toggle-btn {
+  background: none;
+  border: none;
+  color: #86868b;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.chart-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #1d1d1f;
+}
+
+.chart-content {
+  padding: 20px;
+  text-align: center;
+}
+
+.chart-content img {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.chart-content img:hover {
+  transform: scale(1.02);
+}
+
+/* Chart button */
+.action-btn.chart-btn {
+  background: linear-gradient(135deg, #34c759, #30d158);
+  color: white;
+  border: none;
+}
+
+.action-btn.chart-btn:hover {
+  background: linear-gradient(135deg, #30d158, #28cd41);
+  color: white;
+}
+
+/* Chart animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+.chart-container.hiding {
+  animation: slideUp 0.3s ease forwards;
 }
