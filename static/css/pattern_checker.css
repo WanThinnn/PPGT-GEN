@@ -65,13 +65,23 @@ body {
 .header h1 {
   font-size: 28px;
   font-weight: 700;
-  background: linear-gradient(135deg, #ff9500, #ff6b47);
+  background: linear-gradient(135deg, 
+    #ff0000 0%,    /* Red */
+    #ff8c00 14%,   /* Orange */
+    #ffd700 28%,   /* Gold */
+    #32cd32 42%,   /* Green */
+    #00bfff 56%,   /* Sky Blue */
+    #4169e1 70%,   /* Royal Blue */
+    #8a2be2 84%,   /* Blue Violet */
+    #ff1493 100%   /* Deep Pink */
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 8px;
   letter-spacing: -0.5px;
 }
+
 
 .header p {
   color: #86868b;
@@ -110,7 +120,7 @@ body {
 
 .mode-btn.active {
   background: white;
-  color: #ff9500;
+  color: #8a2be2;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -244,7 +254,18 @@ input[type="file"]:focus {
 .submit-btn {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #ff9500, #ff6b47);
+  background: linear-gradient(135deg, 
+    #ff0000 0%,    /* Red */
+    #ff8c00 14%,   /* Orange */
+    #ffd700 28%,   /* Gold */
+    #32cd32 42%,   /* Green */
+    #00bfff 56%,   /* Sky Blue */
+    #4169e1 70%,   /* Royal Blue */
+    #8a2be2 84%,   /* Blue Violet */
+    #ff1493 100%   /* Deep Pink */
+  );
+  background-size: 400% 400%;
+  animation: gradientMove 8s ease infinite;
   color: white;
   font-size: 17px;
   font-weight: 600;
@@ -253,9 +274,27 @@ input[type="file"]:focus {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   letter-spacing: -0.2px;
-  box-shadow: 0 4px 16px rgba(255, 149, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
+}
+
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .submit-btn::before {
@@ -275,12 +314,12 @@ input[type="file"]:focus {
 
 .submit-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(255, 149, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .submit-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Cancel button */

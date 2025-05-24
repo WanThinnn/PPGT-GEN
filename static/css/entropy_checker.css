@@ -260,7 +260,7 @@ input[type="file"]:hover {
   margin-top: 20px;
 }
 
-/* Submit button */
+/* Submit button với màu cam cho entropy checker */
 .submit-btn {
   width: 100%;
   padding: 16px;
