@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPGT-GEN | AI Password Tools</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo-section">
+        <div class="logo-icon">🔐</div>
+        <div class="logo-text">
+          <h1>PPGT-GEN Suite</h1>
+          <p>AI-Powered Password Tools</p>
+        </div>
+      </div>
+      <div class="subtitle">
+        Bộ công cụ AI toàn diện cho mật khẩu - Từ tạo dữ liệu đến phân tích bảo mật
+      </div>
+    </div>
+
+    <!-- Features Grid -->
+    <div class="features-grid">
+      <!-- Password Generator -->
+      <div class="feature-card" data-href="/ppgt_gen">
+        <div class="card-header">
+          <div class="card-icon">🚀</div>
+          <div class="card-title">
+            <h3>PagPassGPT Generator</h3>
+            <span class="card-badge">AI Powered</span>
+          </div>
+        </div>
+        <div class="card-description">
+          <p>Tạo mật khẩu thông minh với AI. Hỗ trợ Normal Mode và Data-Centric Mode với khả năng tùy chỉnh cao.</p>
+        </div>
+        <div class="card-features">
+          <div class="feature-item">
+            <span class="feature-icon">🧠</span>
+            <span>AI Generation</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">⚡</span>
+            <span>GPU Acceleration</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📦</span>
+            <span>Batch Processing</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🎯</span>
+            <span>Data-Centric Mode</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="card-btn primary">
+            <span>Bắt đầu tạo</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Password Strength Checker -->
+      <div class="feature-card" data-href="/strength_checker">
+        <div class="card-header">
+          <div class="card-icon">🔍</div>
+          <div class="card-title">
+            <h3>Password Strength Checker</h3>
+            <span class="card-badge">Security</span>
+          </div>
+        </div>
+        <div class="card-description">
+          <p>Phân tích độ mạnh mật khẩu với thuật toán thông minh. Hỗ trợ kiểm tra đơn lẻ và hàng loạt từ file.</p>
+        </div>
+        <div class="card-features">
+          <div class="feature-item">
+            <span class="feature-icon">🔒</span>
+            <span>Security Analysis</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📄</span>
+            <span>Batch Analysis</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📊</span>
+            <span>Detailed Reports</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">💾</span>
+            <span>Export Results</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="card-btn secondary">
+            <span>Kiểm tra ngay</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Password Entropy Checker -->
+      <div class="feature-card" data-href="/entropy_checker">
+        <div class="card-header">
+          <div class="card-icon">📊</div>
+          <div class="card-title">
+            <h3>Password Entropy Checker</h3>
+            <span class="card-badge">Analytics</span>
+          </div>
+        </div>
+        <div class="card-description">
+          <p>Phân tích entropy và độ phức tạp của mật khẩu. Tính toán Shannon entropy, min-entropy và phân phối ký tự.</p>
+        </div>
+        <div class="card-features">
+          <div class="feature-item">
+            <span class="feature-icon">🧮</span>
+            <span>Shannon Entropy</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📈</span>
+            <span>Statistical Analysis</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🔢</span>
+            <span>Character Distribution</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📋</span>
+            <span>Detailed Reports</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="card-btn tertiary">
+            <span>Phân tích entropy</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Password Evaluate Checker -->
+      <div class="feature-card" data-href="/evaluate_checker">
+        <div class="card-header">
+          <div class="card-icon">⚖️</div>
+          <div class="card-title">
+            <h3>Password Evaluate Checker</h3>
+            <span class="card-badge">Evaluation</span>
+          </div>
+        </div>
+        <div class="card-description">
+          <p>Đánh giá hiệu suất các model tạo mật khẩu. Tính toán Hit Rate và Repeat Rate để so sánh chất lượng.</p>
+        </div>
+        <div class="card-features">
+          <div class="feature-item">
+            <span class="feature-icon">🎯</span>
+            <span>Hit Rate Analysis</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🔄</span>
+            <span>Repeat Rate Check</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📂</span>
+            <span>Batch Evaluation</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📈</span>
+            <span>Performance Metrics</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="card-btn quaternary">
+            <span>Đánh giá model</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Password Pattern Checker -->
+      <div class="feature-card" data-href="/pattern_checker">
+        <div class="card-header">
+          <div class="card-icon">🧩</div>
+          <div class="card-title">
+            <h3>Password Pattern Checker</h3>
+            <span class="card-badge">Analysis</span>
+          </div>
+        </div>
+        <div class="card-description">
+          <p>Phân tích pattern và phân phối độ dài mật khẩu. So sánh Euclidean distance giữa các model với plaintext gốc.</p>
+        </div>
+        <div class="card-features">
+          <div class="feature-item">
+            <span class="feature-icon">📏</span>
+            <span>Length Distribution</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🧩</span>
+            <span>Pattern Analysis</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📐</span>
+            <span>Euclidean Distance</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">⚖️</span>
+            <span>Model Comparison</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="card-btn tertiary">
+            <span>Phân tích pattern</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="stats-section">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-icon">🤖</div>
+          <div class="stat-content">
+            <div class="stat-number">AI-Powered</div>
+            <div class="stat-label">Trí tuệ nhân tạo</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-content">
+            <div class="stat-number">GPU</div>
+            <div class="stat-label">Tăng tốc phần cứng</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">🔐</div>
+          <div class="stat-content">
+            <div class="stat-number">Security</div>
+            <div class="stat-label">Bảo mật cao</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">📊</div>
+          <div class="stat-content">
+            <div class="stat-number">Analytics</div>
+            <div class="stat-label">Phân tích chi tiết</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-content">
+        <div class="footer-text">
+          <p>© 2024 PPGT-GEN Suite | AI-Powered Password Tools</p>
+          <p>Developed for NT522 - AI Security Course</p>
+        </div>
+        <div class="footer-tech">
+          <span class="tech-badge">Flask</span>
+          <span class="tech-badge">Python</span>
+          <span class="tech-badge">AI/ML</span>
+          <span class="tech-badge">GPU</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Card click handling
+    document.querySelectorAll('.feature-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const href = card.dataset.href;
+        if (href) {
+          window.location.href = href;
+        }
+      });
+    });
+
+    // Button click handling
+    document.querySelectorAll('.card-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const card = btn.closest('.feature-card');
+        const href = card.dataset.href;
+        if (href) {
+          window.location.href = href;
+        }
+      });
+    });
+
+    // Add animation on load
+    window.addEventListener('load', () => {
+      document.body.classList.add('loaded');
+    });
+  </script>
+</body>
+</html>

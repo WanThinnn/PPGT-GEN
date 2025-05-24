@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PagPassGPT</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ppgt_gen.css') }}">
+  <script src="{{ url_for('static', filename='js/ppgt_gen.js') }}" defer></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header spans across both columns -->
+    <div class="header">
+      <h1>PagPassGPT Generator</h1>
+      <p>Tạo mật khẩu thông minh với AI!</p>
+      
+      <!-- Mode Toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="normal">
+          <span class="mode-icon">🚀</span>
+          <span class="mode-text">Normal Mode</span>
+        </button>
+        <button class="mode-btn" data-mode="dc">
+          <span class="mode-icon">🧠</span>
+          <span class="mode-text">DC Mode</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Left Column - Form -->
+    <div class="form-column">
+      <form id="gen-form">
+        <!-- Mode Description -->
+        <div class="mode-description" id="mode-description">
+          <div class="mode-info normal-mode active">
+            <h3>🚀 Normal Generation</h3>
+            <p>Tạo mật khẩu từ model đã được training, không phụ thuộc vào dataset cụ thể.</p>
+          </div>
+          <div class="mode-info dc-mode">
+            <h3>🧠 Data-Centric Generation</h3>
+            <p>Phân tích pattern từ dataset và tạo mật khẩu targeted dựa trên dữ liệu.</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>💾 Output Path</label>
+          <input type="text" id="output_path" placeholder="/path/to/output/directory" required>
+        </div>
+
+        <div class="form-group">
+          <label>🔢 Generate Number</label>
+          <input type="number" id="generate_num" value="10000" min="1" max="1000000">
+        </div>
+
+        <div class="form-group-inline">
+          <div class="form-group">
+            <label>📦 Batch Size</label>
+            <input type="number" id="batch_size" value="1000" min="1" max="10000">
+          </div>
+          <div class="form-group">
+            <label>🖥️ GPU Num</label>
+            <input type="number" id="gpu_num" value="2" min="1" max="8">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>⚙️ GPU Index</label>
+          <input type="number" id="gpu_index" value="0" min="0" max="7">
+        </div>
+
+        <div class="button-container">
+          <button type="submit" class="submit-btn" id="submit-btn">
+            <span id="btn-text">Bắt đầu tạo dữ liệu</span>
+          </button>
+          
+          <button type="button" class="cancel-btn" id="cancel-btn">
+            <span>Hủy tạo dữ liệu</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right Column - Results -->
+    <div class="result-column">
+      <div class="result-section" id="result-section">
+        <!-- Placeholder content khi chưa có kết quả -->
+        <div class="result-placeholder" id="result-placeholder">
+          <div class="placeholder-icon">🔐</div>
+          <div class="placeholder-title">Sẵn sàng tạo mật khẩu</div>
+          <div class="placeholder-subtitle">
+            Chọn mode, điền thông tin và nhấn "Bắt đầu tạo dữ liệu"<br>
+            để bắt đầu quá trình generation
+          </div>
+          <ul class="placeholder-features">
+            <li>Tạo mật khẩu thông minh với AI</li>
+            <li>Hỗ trợ GPU acceleration</li>
+            <li>Batch processing hiệu quả</li>
+            <li>Có thể hủy giữa chừng</li>
+          </ul>
+        </div>
+
+        <!-- Nội dung kết quả -->
+        <div class="result-content" id="result-content">
+          <div class="result-header">
+            <div class="result-title-section">
+              <h3>Kết quả</h3>
+              <span class="status-badge" id="status-badge"></span>
+            </div>
+            <div class="result-meta">
+              <div class="result-stats" id="result-stats">
+                <span id="mode-indicator">🚀 Normal</span>
+                <span id="time-indicator">⏱️ <span id="execution-time">--</span></span>
+              </div>
+              <div class="result-actions">
+                <button class="action-btn copy-btn" id="copy-btn" title="Copy kết quả">
+                  📋 Copy
+                </button>
+                <button class="action-btn download-btn" id="download-btn" title="Download JSON">
+                  💾 Download
+                </button>
+              </div>
+            </div>
+          </div>
+          <pre id="result"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

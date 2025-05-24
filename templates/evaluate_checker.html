@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Evaluate Checker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/evaluate_checker.css') }}">
+  <script src="{{ url_for('static', filename='js/evaluate_checker.js') }}" defer></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header spans across both columns -->
+    <div class="header">
+      <h1>Password Evaluate Checker</h1>
+      <p>Đánh giá hiệu suất model tạo mật khẩu!</p>
+      
+      <!-- Mode Toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="normal">
+          <span class="mode-icon">🚀</span>
+          <span class="mode-text">Normal Mode</span>
+        </button>
+        <button class="mode-btn" data-mode="dc">
+          <span class="mode-icon">🧠</span>
+          <span class="mode-text">DC Mode</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Left Column - Form -->
+    <div class="form-column">
+      <form id="evaluate-form">
+        <!-- Mode Description -->
+        <div class="mode-description" id="mode-description">
+          <div class="mode-info normal-mode active">
+            <h3>🚀 Đánh giá Normal Mode</h3>
+            <p>Đánh giá hiệu suất model Normal Generation dựa trên Hit Rate và Repeat Rate.</p>
+          </div>
+          <div class="mode-info dc-mode">
+            <h3>🧠 Đánh giá DC Mode</h3>
+            <p>Đánh giá hiệu suất model Data-Centric Generation với dataset reference.</p>
+          </div>
+        </div>
+
+        <!-- Test file -->
+        <div class="form-group">
+          <label>📄 Test File</label>
+          <input type="file" id="test-file" accept=".txt,.csv" placeholder="Chọn file test set" required>
+          <small class="file-hint">File chứa danh sách mật khẩu chuẩn để so sánh</small>
+        </div>
+
+        <!-- Generated files directory -->
+        <div class="form-group">
+          <label>📁 Generated Files Path</label>
+          <input type="text" id="gen-path" placeholder="/path/to/generated/files" required>
+          <small class="file-hint">Đường dẫn đến thư mục chứa file mật khẩu được tạo</small>
+        </div>
+
+        <div class="button-container">
+          <button type="submit" class="submit-btn" id="submit-btn">
+            <span id="btn-text">Bắt đầu đánh giá</span>
+          </button>
+          
+          <button type="button" class="cancel-btn" id="cancel-btn">
+            <span>Hủy đánh giá</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right Column - Results -->
+    <div class="result-column">
+      <div class="result-section" id="result-section">
+        <!-- Placeholder content khi chưa có kết quả -->
+        <div class="result-placeholder" id="result-placeholder">
+          <div class="placeholder-icon">⚖️</div>
+          <div class="placeholder-title">Sẵn sàng đánh giá model</div>
+          <div class="placeholder-subtitle">
+            Chọn test file và đường dẫn generated files<br>
+            để bắt đầu quá trình đánh giá hiệu suất
+          </div>
+          <ul class="placeholder-features">
+            <li>Tính toán Hit Rate</li>
+            <li>Phân tích Repeat Rate</li>
+            <li>So sánh với test set</li>
+            <li>Báo cáo hiệu suất chi tiết</li>
+          </ul>
+        </div>
+
+        <!-- Nội dung kết quả -->
+        <div class="result-content" id="result-content">
+          <div class="result-header">
+            <div class="result-title-section">
+              <h3>Kết quả đánh giá model</h3>
+              <span class="status-badge" id="status-badge"></span>
+            </div>
+            <div class="result-meta">
+              <div class="result-stats" id="result-stats">
+                <span id="mode-indicator">⚖️ Normal</span>
+                <span id="time-indicator">⏱️ <span id="check-time">--</span></span>
+              </div>
+              <div class="result-actions">
+                <button class="action-btn copy-btn" id="copy-btn" title="Copy kết quả">
+                  📋 Copy
+                </button>
+                <button class="action-btn download-btn" id="download-btn" title="Download báo cáo">
+                  💾 Download
+                </button>
+              </div>
+            </div>
+          </div>
+          <pre id="result"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

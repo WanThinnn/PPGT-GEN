@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Strength Checker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/strength_checker.css') }}">
+  <script src="{{ url_for('static', filename='js/strength_checker.js') }}" defer></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header spans across both columns -->
+    <div class="header">
+      <h1>Password Strength Checker</h1>
+      <p>Kiểm tra độ mạnh mật khẩu với AI!</p>
+      
+      <!-- Mode Toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="single">
+          <span class="mode-icon">🔒</span>
+          <span class="mode-text">Kiểm tra đơn</span>
+        </button>
+        <button class="mode-btn" data-mode="file">
+          <span class="mode-icon">📄</span>
+          <span class="mode-text">Kiểm tra file</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Left Column - Form -->
+    <div class="form-column">
+      <form id="strength-form">
+        <!-- Mode Description -->
+        <div class="mode-description" id="mode-description">
+          <div class="mode-info single-mode active">
+            <h3>🔒 Kiểm tra mật khẩu đơn</h3>
+            <p>Nhập một mật khẩu để kiểm tra độ mạnh và các vấn đề bảo mật.</p>
+          </div>
+          <div class="mode-info file-mode">
+            <h3>📄 Kiểm tra file mật khẩu</h3>
+            <p>Upload file chứa danh sách mật khẩu để phân tích hàng loạt.</p>
+          </div>
+        </div>
+
+        <!-- Single password mode -->
+        <div class="form-group single-mode-form">
+          <label>🔐 Mật khẩu</label>
+          <input type="password" id="password" placeholder="Nhập mật khẩu cần kiểm tra" required>
+          <div class="password-toggle">
+            <button type="button" id="toggle-password" class="toggle-btn">👁️ Hiện</button>
+          </div>
+        </div>
+
+        <!-- File mode -->
+        <div class="form-group file-mode-form" style="display: none;">
+          <label>📁 File mật khẩu</label>
+          <input type="file" id="password-file" accept=".txt,.csv" placeholder="Chọn file chứa danh sách mật khẩu">
+          <small class="file-hint">Hỗ trợ file .txt với mỗi mật khẩu trên một dòng</small>
+        </div>
+
+        <div class="button-container">
+          <button type="submit" class="submit-btn" id="submit-btn">
+            <span id="btn-text">Kiểm tra độ mạnh</span>
+          </button>
+          
+          <button type="button" class="cancel-btn" id="cancel-btn">
+            <span>Hủy kiểm tra</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right Column - Results -->
+    <div class="result-column">
+      <div class="result-section" id="result-section">
+        <!-- Placeholder content khi chưa có kết quả -->
+        <div class="result-placeholder" id="result-placeholder">
+          <div class="placeholder-icon">🔐</div>
+          <div class="placeholder-title">Sẵn sàng kiểm tra mật khẩu</div>
+          <div class="placeholder-subtitle">
+            Nhập mật khẩu hoặc chọn file và nhấn "Kiểm tra độ mạnh"<br>
+            để bắt đầu quá trình phân tích
+          </div>
+          <ul class="placeholder-features">
+            <li>Phân tích độ phức tạp mật khẩu</li>
+            <li>Kiểm tra các tiêu chuẩn bảo mật</li>
+            <li>Hỗ trợ kiểm tra hàng loạt</li>
+            <li>Báo cáo chi tiết các vấn đề</li>
+          </ul>
+        </div>
+
+        <!-- Nội dung kết quả -->
+        <div class="result-content" id="result-content">
+          <div class="result-header">
+            <div class="result-title-section">
+              <h3>Kết quả kiểm tra</h3>
+              <span class="status-badge" id="status-badge"></span>
+            </div>
+            <div class="result-meta">
+              <div class="result-stats" id="result-stats">
+                <span id="mode-indicator">🔒 Đơn</span>
+                <span id="time-indicator">⏱️ <span id="check-time">--</span></span>
+              </div>
+              <div class="result-actions">
+                <button class="action-btn copy-btn" id="copy-btn" title="Copy kết quả">
+                  📋 Copy
+                </button>
+                <button class="action-btn download-btn" id="download-btn" title="Download báo cáo">
+                  💾 Download
+                </button>
+              </div>
+            </div>
+          </div>
+          <pre id="result"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
