@@ -35,11 +35,9 @@ import io
 import os
 import time
 
-
 # Global variable để track running processes
 running_processes = {}
 process_lock = threading.Lock()
-
 # Cấu hình logging
 logging.basicConfig(
     level=logging.INFO,
@@ -108,7 +106,7 @@ class PathConverter:
                 return os.path.exists(path)
         except Exception:
             return False
-
+        
 class ProcessRunner:
     """Chạy subprocess một cách an toàn và hiệu quả"""
     
@@ -232,45 +230,13 @@ class ProcessRunner:
                     process.kill()
             except:
                 pass
-
 class RequestValidator:
     """Validate request parameters"""
     
     @staticmethod
     def validate_dc_gen_params(params: Dict[str, Any]) -> Optional[str]:
-        """Validate DC generation parameters"""
-        required_keys = [
-            "cleaned_dataset", "output_path", 
-            "generate_num", "batch_size", "gpu_num", "gpu_index"
-        ]
-        
-        # Kiểm tra required fields
-        for key in required_keys:
-            if key not in params:
-                return f"Missing required parameter: {key}"
-        
-        # Kiểm tra kiểu dữ liệu số
-        numeric_fields = ["generate_num", "batch_size", "gpu_num", "gpu_index"]
-        for field in numeric_fields:
-            try:
-                params[field] = int(params[field])
-            except (ValueError, TypeError):
-                return f"Invalid numeric value for {field}: {params[field]}"
-        
-        # Kiểm tra giá trị hợp lệ
-        # if params["generate_num"] <= 0 or params["generate_num"] > 1000000:
-        #     return "generate_num must be between 1 and 1,000,000"
-        
-        # if params["batch_size"] <= 0 or params["batch_size"] > 10000:
-        #     return "batch_size must be between 1 and 10,000"
-        
-        # if params["gpu_num"] <= 0 or params["gpu_num"] > 8:
-        #     return "gpu_num must be between 1 and 8"
-        
-        # if params["gpu_index"] < 0 or params["gpu_index"] > 7:
-        #     return "gpu_index must be between 0 and 7"
-        
-        return None
+        """DC generation validation - giống như normal gen"""
+        return RequestValidator.validate_normal_gen_params(params)
     
     @staticmethod
     def validate_normal_gen_params(params: Dict[str, Any]) -> Optional[str]:
@@ -290,7 +256,24 @@ class RequestValidator:
                 return f"Invalid numeric value for {field}: {params[field]}"
         
         return None
-
+    @staticmethod
+    def validate_normal_gen_params(params: Dict[str, Any]) -> Optional[str]:
+        """Validate normal generation parameters"""
+        required_keys = ["output_path", "generate_num", "batch_size", "gpu_num", "gpu_index"]
+        
+        for key in required_keys:
+            if key not in params:
+                return f"Missing required parameter: {key}"
+        
+        # Kiểm tra kiểu dữ liệu số
+        numeric_fields = ["generate_num", "batch_size", "gpu_num", "gpu_index"]
+        for field in numeric_fields:
+            try:
+                params[field] = int(params[field])
+            except (ValueError, TypeError):
+                return f"Invalid numeric value for {field}: {params[field]}"
+        
+        return None
 ###################### GUI ######################
 
 # Error handlers
@@ -346,10 +329,8 @@ def health_check():
         "cpu_usage": f"{psutil.cpu_percent()}%",
         "disk_usage": f"{psutil.disk_usage('/').percent}%"
     })
-######################### CALL API #########################    
-
-    
-@app.route("/dc_generate", methods=["POST"])
+######################### CALL API #########################
+@app.route("/dc_generate", methods=["POST"])    
 def dc_generate():
     """DC Generation API endpoint"""
     try:
@@ -406,11 +387,27 @@ def dc_generate():
                 "returncode": rc1,
                 "output": out1
             }), 500
-        
+               # Debug: Kiểm tra patterns file
+        patterns_file = os.path.abspath("patterns.txt")
+        if os.path.exists(patterns_file):
+            with open(patterns_file, 'r', encoding='utf-8', errors='ignore') as f:
+                patterns_content = f.read()
+                patterns_lines = len(patterns_content.splitlines())
+                logger.info(f"Patterns file exists with {patterns_lines} lines")
+                logger.info(f"First few lines: {patterns_content[:200]}")
+        else:
+            logger.error("Patterns file not found!")
+            return jsonify({
+                "success": False,
+                "message": "Patterns file was not created by get_pattern_rate.py",
+                "step": "patterns_validation"
+            }), 500
         # Step 2: DC Generation với process tracking
+        patterns_file = os.path.abspath("patterns.txt")  # Đường dẫn patterns file
         cmd2 = [
             sys.executable, "libppgt/DC-GEN.py",
             "--model_path", params["model_path"],
+            "--pattern_path", patterns_file,  # THÊM DÒNG NÀY - QUAN TRỌNG!
             "--output_path", params["output_path"],
             "--generate_num", str(params["generate_num"]),
             "--batch_size", str(params["batch_size"]),
@@ -461,7 +458,8 @@ def dc_generate():
     except Exception as e:
         logger.error(f"DC generation error: {e}")
         return jsonify({"error": f"DC generation failed: {str(e)}"}), 500
-
+    
+    
 @app.route("/normal_generate", methods=["POST"])
 def normal_generate():
     """Normal Generation API endpoint"""
@@ -548,6 +546,7 @@ def normal_generate():
     except Exception as e:
         logger.error(f"Normal generation error: {e}")
         return jsonify({"error": f"Normal generation failed: {str(e)}"}), 500
+
 
 @app.route("/cancel_generation", methods=["POST"])
 def cancel_generation():

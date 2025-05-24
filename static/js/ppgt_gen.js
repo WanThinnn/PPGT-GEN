@@ -1,15 +1,17 @@
-/* filepath: /mnt/d/Documents/UIT/Nam_3/HK2/NT522_AI-ATTT/PPGT-GEN/static/js/strength_checker.js */
-const form = document.getElementById('strength-form');
+const form = document.getElementById('gen-form');
 const submitBtn = document.getElementById('submit-btn');
+const cancelBtn = document.getElementById('cancel-btn');
 const btnText = document.getElementById('btn-text');
-const passwordInput = document.getElementById('password');
-const fileInput = document.getElementById('password-file');
-const togglePasswordBtn = document.getElementById('toggle-password');
+const resultSection = document.getElementById('result-section');
+const statusBadge = document.getElementById('status-badge');
+const resultElement = document.getElementById('result');
 const modeButtons = document.querySelectorAll('.mode-btn');
 const modeInfos = document.querySelectorAll('.mode-info');
 
-let currentMode = 'single'; // Default mode
-let checkStartTime = null;
+let currentController = null;
+let statusCheckInterval = null;
+let currentMode = 'normal'; // Default mode
+let executionStartTime = null;
 
 // Mode switching
 modeButtons.forEach(btn => {
@@ -32,31 +34,10 @@ function switchMode(mode) {
     info.classList.toggle('active', info.classList.contains(`${mode}-mode`));
   });
   
-  // Show/hide form elements
-  const singleForm = document.querySelector('.single-mode-form');
-  const fileForm = document.querySelector('.file-mode-form');
-  
-  if (mode === 'single') {
-    singleForm.style.display = 'block';
-    fileForm.style.display = 'none';
-    passwordInput.required = true;
-    fileInput.required = false;
-    btnText.textContent = 'Kiểm tra độ mạnh';
-  } else {
-    singleForm.style.display = 'none';
-    fileForm.style.display = 'block';
-    passwordInput.required = false;
-    fileInput.required = true;
-    btnText.textContent = 'Phân tích file';
-  }
+  // Update button text
+  const modeText = mode === 'normal' ? 'Normal' : 'DC';
+  btnText.textContent = `Bắt đầu tạo dữ liệu (${modeText})`;
 }
-
-// Password toggle functionality
-togglePasswordBtn.addEventListener('click', () => {
-  const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-  passwordInput.setAttribute('type', type);
-  togglePasswordBtn.textContent = type === 'password' ? '👁️ Hiện' : '🙈 Ẩn';
-});
 
 function showResult() {
   document.getElementById('result-placeholder').classList.add('hidden');
@@ -67,8 +48,8 @@ function showResult() {
   
   // Update mode indicator
   const modeIndicator = document.getElementById('mode-indicator');
-  const modeIcon = currentMode === 'single' ? '🔒' : '📄';
-  const modeText = currentMode === 'single' ? 'Đơn' : 'File';
+  const modeIcon = currentMode === 'normal' ? '🚀' : '🧠';
+  const modeText = currentMode === 'normal' ? 'Normal' : 'DC';
   modeIndicator.textContent = `${modeIcon} ${modeText}`;
 }
 
@@ -83,138 +64,174 @@ function hideResult() {
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   
-  checkStartTime = Date.now();
+  currentController = new AbortController();
+  executionStartTime = Date.now();
   
   // Show loading state
   submitBtn.classList.add('loading');
-  btnText.textContent = `Đang kiểm tra...`;
+  btnText.textContent = `Đang xử lý (${currentMode.toUpperCase()})...`;
   submitBtn.disabled = true;
+  cancelBtn.classList.add('show');
+
+  startStatusCheck();
 
   try {
-    let data = {};
-    let endpoint = '';
-    
-    if (currentMode === 'single') {
-      data = { password: passwordInput.value };
-      endpoint = '/check_single_password';
-    } else {
-      // Handle file upload
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-      
-      const res = await fetch('/check_password_file', {
-        method: 'POST',
-        body: formData
-      });
-      
-      const result = await res.json();
-      displayResult(result, res.ok);
-      return;
+    const data = {
+      output_path: document.getElementById('output_path').value,
+      generate_num: parseInt(document.getElementById('generate_num').value),
+      batch_size: parseInt(document.getElementById('batch_size').value),
+      gpu_num: parseInt(document.getElementById('gpu_num').value),
+      gpu_index: parseInt(document.getElementById('gpu_index').value)
+    };
+
+    // Add cleaned_dataset for DC mode (hardcoded)
+    if (currentMode === 'dc') {
+      data.cleaned_dataset = 'dataset/rockyou-cleaned.txt';
     }
+
+    // Choose endpoint based on mode
+    const endpoint = currentMode === 'normal' ? '/normal_generate' : '/dc_generate';
 
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      signal: currentController.signal
     });
 
     const result = await res.json();
-    displayResult(result, res.ok);
+    
+    // Calculate execution time
+    const executionTime = executionStartTime ? 
+      Math.round((Date.now() - executionStartTime) / 1000) : 0;
+    document.getElementById('execution-time').textContent = `${executionTime}s`;
+    
+    // Show result
+    resultElement.textContent = JSON.stringify(result, null, 2);
+    resultElement.classList.add('json-content');
+    showResult();
+    
+    // Update status badge
+    if (res.ok) {
+      statusBadge.textContent = 'Thành công';
+      statusBadge.className = 'status-badge status-success';
+    } else {
+      statusBadge.textContent = 'Lỗi';
+      statusBadge.className = 'status-badge status-error';
+    }
 
   } catch (error) {
-    const checkTime = checkStartTime ? 
-      Math.round((Date.now() - checkStartTime) / 1000) : 0;
-    document.getElementById('check-time').textContent = `${checkTime}s`;
+    const executionTime = executionStartTime ? 
+      Math.round((Date.now() - executionStartTime) / 1000) : 0;
+    document.getElementById('execution-time').textContent = `${executionTime}s`;
     
-    document.getElementById('result').textContent = `Lỗi: ${error.message}`;
-    document.getElementById('status-badge').textContent = 'Lỗi';
-    document.getElementById('status-badge').className = 'status-badge status-error';
+    if (error.name === 'AbortError') {
+      resultElement.textContent = 'Quá trình tạo dữ liệu đã bị hủy.';
+      statusBadge.textContent = 'Đã hủy';
+      statusBadge.className = 'status-badge status-error';
+    } else {
+      resultElement.textContent = `Lỗi: ${error.message}`;
+      statusBadge.textContent = 'Lỗi';
+      statusBadge.className = 'status-badge status-error';
+    }
+    resultElement.classList.remove('json-content');
     showResult();
   } finally {
+    stopStatusCheck();
     resetButtonState();
-    checkStartTime = null;
+    executionStartTime = null;
   }
 });
 
-function displayResult(result, isSuccess) {
-  // Calculate check time
-  const checkTime = checkStartTime ? 
-    Math.round((Date.now() - checkStartTime) / 1000) : 0;
-  document.getElementById('check-time').textContent = `${checkTime}s`;
-  
-  // Show result
-  const resultElement = document.getElementById('result');
-  const statusBadge = document.getElementById('status-badge');
-  
-  if (currentMode === 'single') {
-    // Single password result
-    let resultText = `Mật khẩu: ${result.password}\n\n`;
-    resultText += `Trạng thái: ${result.is_strong ? '✅ Mạnh' : '❌ Yếu'}\n\n`;
+// Cancel button handler
+cancelBtn.addEventListener('click', async () => {
+  try {
+    btnText.textContent = 'Đang hủy...';
+    cancelBtn.disabled = true;
     
-    if (!result.is_strong && result.issues) {
-      resultText += `Các vấn đề:\n`;
-      result.issues.forEach(issue => {
-        resultText += `  • ${issue}\n`;
-      });
+    if (currentController) {
+      currentController.abort();
     }
     
-    resultElement.textContent = resultText;
-    statusBadge.textContent = result.is_strong ? 'Mạnh' : 'Yếu';
-    statusBadge.className = result.is_strong ? 'status-badge status-strong' : 'status-badge status-weak';
-  } else {
-    // File analysis result
-    let resultText = `📄 PHÂN TÍCH FILE MẬT KHẨU\n`;
-    resultText += `${'='.repeat(50)}\n\n`;
-    resultText += `📊 Thống kê tổng quan:\n`;
-    resultText += `  • Tổng số mật khẩu: ${result.total_passwords}\n`;
-    resultText += `  • Mật khẩu mạnh: ${result.strong_passwords} (${result.strong_percentage}%)\n`;
-    resultText += `  • Mật khẩu yếu: ${result.weak_passwords} (${result.weak_percentage}%)\n\n`;
+    const response = await fetch('/cancel_generation', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
     
-    if (result.common_issues && result.common_issues.length > 0) {
-      resultText += `🔍 Các vấn đề phổ biến:\n`;
-      result.common_issues.forEach(issue => {
-        resultText += `  • ${issue.issue}: ${issue.count} lần\n`;
-      });
-      resultText += `\n`;
-    }
+    const result = await response.json();
+    console.log('Cancel response:', result);
     
-    if (result.sample_weak_passwords && result.sample_weak_passwords.length > 0) {
-      resultText += `📝 Mẫu mật khẩu yếu:\n`;
-      result.sample_weak_passwords.slice(0, 10).forEach((pwd, index) => {
-        resultText += `  ${index + 1}. ${pwd.password}\n`;
-        resultText += `     Vấn đề: ${pwd.issues.join(', ')}\n`;
-      });
-    }
-    
-    resultElement.textContent = resultText;
-    
-    const strongPercent = parseFloat(result.strong_percentage);
-    if (strongPercent >= 70) {
-      statusBadge.textContent = 'Tốt';
-      statusBadge.className = 'status-badge status-strong';
-    } else if (strongPercent >= 40) {
-      statusBadge.textContent = 'Trung bình';
-      statusBadge.className = 'status-badge status-weak';
-    } else {
-      statusBadge.textContent = 'Yếu';
+    if (result.success) {
+      resultElement.textContent = `Đã hủy ${result.cancelled_count} processes thành công.`;
+      statusBadge.textContent = 'Đã hủy';
       statusBadge.className = 'status-badge status-error';
+      showResult();
     }
+    
+  } catch (err) {
+    console.log('Cancel request failed:', err);
+    resultElement.textContent = 'Lỗi khi hủy process.';
+    statusBadge.textContent = 'Lỗi hủy';
+    statusBadge.className = 'status-badge status-error';
+    showResult();
+  } finally {
+    cancelBtn.disabled = false;
   }
-  
-  showResult();
+});
+
+function startStatusCheck() {
+  statusCheckInterval = setInterval(async () => {
+    try {
+      const response = await fetch('/status');
+      const status = await response.json();
+      
+      if (status.running_processes > 0) {
+        btnText.textContent = `Đang xử lý (${currentMode.toUpperCase()})... (${status.running_processes} processes)`;
+      } else {
+        btnText.textContent = `Đang xử lý (${currentMode.toUpperCase()})...`;
+      }
+    } catch (err) {
+      console.log('Status check failed:', err);
+    }
+  }, 2000);
+}
+
+function stopStatusCheck() {
+  if (statusCheckInterval) {
+    clearInterval(statusCheckInterval);
+    statusCheckInterval = null;
+  }
 }
 
 function resetButtonState() {
   submitBtn.classList.remove('loading');
-  const modeText = currentMode === 'single' ? 'Kiểm tra độ mạnh' : 'Phân tích file';
-  btnText.textContent = modeText;
+  const modeText = currentMode === 'normal' ? 'Normal' : 'DC';
+  btnText.textContent = `Bắt đầu tạo dữ liệu (${modeText})`;
   submitBtn.disabled = false;
+  cancelBtn.classList.remove('show');
+  cancelBtn.disabled = false;
+  currentController = null;
 }
+
+// Input validation
+const inputs = document.querySelectorAll('input[required]');
+inputs.forEach(input => {
+  input.addEventListener('invalid', function() {
+    this.style.borderColor = '#ff3b30';
+    this.style.boxShadow = '0 0 0 4px rgba(255, 59, 48, 0.1)';
+  });
+  
+  input.addEventListener('input', function() {
+    if (this.validity.valid) {
+      this.style.borderColor = '#007AFF';
+      this.style.boxShadow = '0 0 0 4px rgba(0, 122, 255, 0.1)';
+    }
+  });
+});
 
 // Copy button functionality
 document.getElementById('copy-btn').addEventListener('click', async () => {
   try {
-    const resultElement = document.getElementById('result');
     await navigator.clipboard.writeText(resultElement.textContent);
     const btn = document.getElementById('copy-btn');
     const originalText = btn.textContent;
@@ -230,12 +247,12 @@ document.getElementById('copy-btn').addEventListener('click', async () => {
 // Download button functionality
 document.getElementById('download-btn').addEventListener('click', () => {
   try {
-    const content = document.getElementById('result').textContent;
-    const blob = new Blob([content], { type: 'text/plain' });
+    const content = resultElement.textContent;
+    const blob = new Blob([content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `password-check-${currentMode}-${Date.now()}.txt`;
+    a.download = `ppgt-result-${currentMode}-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -253,4 +270,4 @@ document.getElementById('download-btn').addEventListener('click', () => {
 });
 
 // Initialize default mode
-switchMode('single');
+switchMode('normal');
