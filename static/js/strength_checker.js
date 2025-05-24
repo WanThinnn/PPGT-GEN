@@ -14,6 +14,13 @@ let checkStartTime = null;
 let isProcessing = false;
 let currentController = null; // AbortController cho fetch
 
+// Thêm biến global để lưu trữ mật khẩu mạnh
+let strongPasswordsData = {
+  passwords: [],
+  filename: '',
+  count: 0
+};
+
 // Mode switching
 modeButtons.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -203,9 +210,207 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+function toggleStrongPasswordsInfo() {
+  const info = document.getElementById('strong-passwords-info');
+  if (info.style.display === 'none') {
+    info.style.display = 'block';
+  } else {
+    info.style.display = 'none';
+  }
+}
+
+function toggleStrongPasswordsPreview() {
+  const preview = document.getElementById('strong-passwords-preview');
+  const btn = document.getElementById('preview-strong-btn');
+  
+  if (preview.style.display === 'none') {
+    preview.style.display = 'block';
+    btn.innerHTML = '🙈 Ẩn';
+    displayStrongPasswordsList();
+  } else {
+    preview.style.display = 'none';
+    btn.innerHTML = '👁️ Xem trước';
+  }
+}
+
+function displayStrongPasswordsList() {
+  const listContainer = document.getElementById('strong-passwords-list');
+  
+  if (strongPasswordsData.passwords.length === 0) {
+    listContainer.innerHTML = '<p class="no-passwords">Không có mật khẩu mạnh nào.</p>';
+    return;
+  }
+  
+  let html = '';
+  strongPasswordsData.passwords.forEach((password, index) => {
+    html += `<div class="password-item">
+      <span class="password-text">${escapeHtml(password)}</span>
+      <button class="copy-password-btn" onclick="copyPassword('${escapeHtml(password)}')" title="Copy mật khẩu">📋</button>
+    </div>`;
+  });
+  
+  listContainer.innerHTML = html;
+}
+
+function copyPassword(password) {
+  navigator.clipboard.writeText(password).then(() => {
+    showNotification('Đã copy mật khẩu!', 'success');
+  }).catch(() => {
+    showNotification('Không thể copy mật khẩu', 'error');
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function downloadStrongPasswords() {
+  if (strongPasswordsData.passwords.length === 0) {
+    showNotification('Không có mật khẩu mạnh để tải về', 'error');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/download_strong_passwords', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        strong_passwords: strongPasswordsData.passwords,
+        filename: strongPasswordsData.filename
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+    
+    // Tạo blob từ response
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    
+    // Tạo link download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `strong_passwords_${Date.now()}.txt`;
+    a.style.display = 'none';
+    
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showNotification(`Đã tải về ${strongPasswordsData.count} mật khẩu mạnh!`, 'success');
+    
+    // Update button text temporarily
+    const btn = document.getElementById('download-strong-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '✅ Đã tải về!';
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error downloading strong passwords:', error);
+    showNotification('Không thể tải về file', 'error');
+  }
+}
+
+function showNotification(message, type = 'info') {
+  // Tạo notification element
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  
+  // Style cho notification
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  `;
+  
+  // Set màu dựa vào type
+  switch(type) {
+    case 'success':
+      notification.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
+      break;
+    case 'error':
+      notification.style.background = 'linear-gradient(135deg, #ff3b30, #ff6b47)';
+      break;
+    default:
+      notification.style.background = 'linear-gradient(135deg, #007AFF, #0051d5)';
+  }
+  
+  document.body.appendChild(notification);
+  
+  // Animate in
+  setTimeout(() => {
+    notification.style.transform = 'translateX(0)';
+  }, 10);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    notification.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        document.body.removeChild(notification);
+      }
+    }, 300);
+  }, 3000);
+}
+
+function updateStrongPasswordsSection(result) {
+  const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
+  const strongPasswordsInfo = document.getElementById('strong-passwords-info');
+  const strongCount = document.getElementById('strong-count');
+  
+  if (result.strong_passwords_list && result.strong_passwords_list.length > 0) {
+    // Cập nhật dữ liệu global
+    strongPasswordsData = {
+      passwords: result.strong_passwords_list,
+      filename: result.filename,
+      count: result.strong_passwords_list.length
+    };
+    
+    // Hiển thị button và info
+    strongPasswordsBtn.style.display = 'inline-block';
+    strongCount.textContent = `${strongPasswordsData.count} mật khẩu`;
+    
+    // Reset preview state
+    const preview = document.getElementById('strong-passwords-preview');
+    const previewBtn = document.getElementById('preview-strong-btn');
+    preview.style.display = 'none';
+    previewBtn.innerHTML = '👁️ Xem trước';
+    strongPasswordsInfo.style.display = 'none';
+  } else {
+    // Ẩn button nếu không có mật khẩu mạnh
+    strongPasswordsBtn.style.display = 'none';
+    strongPasswordsInfo.style.display = 'none';
+    strongPasswordsData = { passwords: [], filename: '', count: 0 };
+  }
+}
+
+// Cập nhật hàm displayResult để bao gồm strong passwords
 function displayResult(result, isSuccess) {
   if (currentMode === 'file') {
     window.lastFileResult = result;
+    // Cập nhật section mật khẩu mạnh
+    updateStrongPasswordsSection(result);
+  } else {
+    // Ẩn button cho single mode
+    document.getElementById('strong-passwords-btn').style.display = 'none';
+    document.getElementById('strong-passwords-info').style.display = 'none';
   }
   
   // Calculate check time
@@ -328,6 +533,18 @@ document.getElementById('download-btn').addEventListener('click', async () => {
   } catch (err) {
     console.error('Failed to download:', err);
   }
+});
+
+// Thêm event listeners sau khi DOM loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Strong passwords button functionality
+  const strongPasswordsBtn = document.getElementById('strong-passwords-btn');
+  const previewStrongBtn = document.getElementById('preview-strong-btn');
+  const downloadStrongBtn = document.getElementById('download-strong-btn');
+  
+  strongPasswordsBtn.addEventListener('click', toggleStrongPasswordsInfo);
+  previewStrongBtn.addEventListener('click', toggleStrongPasswordsPreview);
+  downloadStrongBtn.addEventListener('click', downloadStrongPasswords);
 });
 
 // Initialize default mode

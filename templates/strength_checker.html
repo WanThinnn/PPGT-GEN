@@ -108,9 +108,34 @@
                 <button class="action-btn download-btn" id="download-btn" title="Download báo cáo">
                   💾 Download
                 </button>
+                <!-- THÊM BUTTON MỚI -->
+                <button class="action-btn strong-passwords-btn" id="strong-passwords-btn" title="Lưu mật khẩu mạnh" style="display: none;">
+                  🔐 Lưu mật khẩu mạnh
+                </button>
               </div>
             </div>
           </div>
+          
+          <!-- THÊM SECTION MỚI ĐỂ HIỂN thị THÔNG TIN MẬT KHẨU MẠNH -->
+          <div class="strong-passwords-info" id="strong-passwords-info" style="display: none;">
+            <div class="strong-passwords-header">
+              <h4>🔐 Mật khẩu mạnh đã phân tích</h4>
+              <span class="strong-count" id="strong-count">0 mật khẩu</span>
+            </div>
+            <div class="strong-passwords-actions">
+              <button class="action-btn preview-strong-btn" id="preview-strong-btn" title="Xem trước mật khẩu mạnh">
+                👁️ Xem trước
+              </button>
+              <button class="action-btn download-strong-btn" id="download-strong-btn" title="Tải về file mật khẩu mạnh">
+                📥 Tải về file
+              </button>
+            </div>
+            <div class="strong-passwords-preview" id="strong-passwords-preview" style="display: none;">
+              <h5>Danh sách mật khẩu mạnh:</h5>
+              <div class="strong-passwords-list" id="strong-passwords-list"></div>
+            </div>
+          </div>
+          
           <pre id="result"></pre>
         </div>
       </div>

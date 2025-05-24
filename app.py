@@ -2,7 +2,7 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Tuple, Optional
-from flask import Flask, jsonify, request, render_template, redirect, url_for
+from flask import Flask, jsonify, make_response, request, render_template, redirect, url_for
 from flask_cors import CORS
 from libanalyst.password_strength_checker import check_single_password
 from libanalyst.password_entropy_checker import analyze_single_password, analyze_password_file
@@ -648,12 +648,11 @@ def check_single_password_api():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 @app.route('/check_password_file', methods=['POST'])
 def check_password_file_api():
     try:
         if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
+            return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
         if file.filename == '':
@@ -678,6 +677,7 @@ def check_password_file_api():
             # Analyze each password
             results = []
             strong_count = 0
+            strong_passwords_list = []  # THÊM DÒNG NÀY
             issues_counter = Counter()
             
             for password in valid_passwords:
@@ -687,13 +687,11 @@ def check_password_file_api():
                     'is_strong': is_strong,
                     'issues': issues
                 })
-                
                 if is_strong:
                     strong_count += 1
+                    strong_passwords_list.append(password)  # THÊM DÒNG NÀY
                 else:
-                    # Đếm các vấn đề
-                    for issue in issues:
-                        issues_counter[issue] += 1
+                    issues_counter.update(issues)
             
             weak_count = total_passwords - strong_count
             
@@ -725,6 +723,7 @@ def check_password_file_api():
                 'weak_percentage': weak_percentage,
                 'common_issues': common_issues,
                 'sample_weak_passwords': sample_weak,
+                'strong_passwords_list': strong_passwords_list,  # THÊM DÒNG NÀY
                 'success': True
             })
         
@@ -736,6 +735,39 @@ def check_password_file_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# THÊM ENDPOINT MỚI ĐỂ DOWNLOAD STRONG PASSWORDS
+@app.route('/download_strong_passwords', methods=['POST'])
+def download_strong_passwords():
+    try:
+        data = request.get_json()
+        strong_passwords = data.get('strong_passwords', [])
+        filename = data.get('filename', 'passwords.txt')
+        
+        if not strong_passwords:
+            return jsonify({'error': 'No strong passwords to download'}), 400
+        
+        # Tạo nội dung file
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        content = f"DANH SÁCH MẬT KHẨU MẠNH\n"
+        content += f"Thời gian: {timestamp}\n"
+        content += f"Nguồn: {filename}\n"
+        content += f"Tổng số mật khẩu mạnh: {len(strong_passwords)}\n"
+        content += "=" * 50 + "\n\n"
+        
+        for i, password in enumerate(strong_passwords, 1):
+            content += f"{i}. {password}\n"
+        
+        # Tạo response với file
+        response = make_response(content)
+        response.headers['Content-Type'] = 'text/plain; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename="strong_passwords_{int(time.time())}.txt"'
+        
+        return response
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    
 # Global variable để track password checking processes
 password_check_processes = {}
 @app.route('/cancel_password_check', methods=['POST'])
