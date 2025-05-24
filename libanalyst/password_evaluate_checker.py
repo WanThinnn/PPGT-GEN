@@ -47,14 +47,14 @@ def get_gen_passwords(gen_files, isNormal):
     gen_passwords = []
     for gen_file in gen_files:
         if isNormal:
-            with open(gen_file, "r") as f:
+            with open(gen_file, "r", encoding='utf-8') as f:
                 for line in f.readlines():
                     try:
                         gen_passwords.append(line.split(" ")[1])
                     except:
                         continue 
         else:
-            with open(gen_file, "r") as f:
+            with open(gen_file, "r", encoding='utf-8') as f:
                 gen_passwords += f.readlines()
     return gen_passwords
 
@@ -69,20 +69,21 @@ def get_hit_rate(test_file, gen_files, isNormal):
     :param isNormal: tham số boolean để xác định phương pháp tạo mật khẩu
     :return: tỷ lệ trúng (hit rate)
     '''
-    hit_num = 0
-    gen_passwords = get_gen_passwords(gen_files, isNormal)
-    gen_passwords = set(gen_passwords)
+    hit_num = 0  # biến để đếm số lượng mật khẩu trùng khớp
+    gen_passwords = get_gen_passwords(gen_files, isNormal)  # gọi hàm để lấy danh sách các mật khẩu được tạo ra
+    gen_passwords = set(gen_passwords)  # chuyển đổi danh sách thành tập hợp để loại bỏ các mật khẩu trùng lặp
 
-    with open(test_file, "r") as f:
-        test_passwords = f.readlines()
-    test_passwords = set(test_passwords)
+    with open(test_file, "r", encoding='utf-8') as f:  # mở tệp đầu vào với chế độ đọc
+        test_passwords = f.readlines()  # đọc tất cả các dòng trong tệp
+    test_passwords = set(test_passwords)  # chuyển đổi danh sách thành tập hợp để loại bỏ các mật khẩu trùng lặp
 
-    for password in gen_passwords:
-        if password in test_passwords:
-            hit_num += 1
+    for password in gen_passwords:  # lặp qua tất cả các mật khẩu được tạo ra
+        if password in test_passwords:  # kiểm tra xem mật khẩu có nằm trong danh sách mật khẩu cần đánh giá hay không
+            hit_num += 1  # nếu có, tăng biến đếm lên 1
     
-    hit_rate = hit_num / len(test_passwords)
-    return hit_rate
+    hit_rate = hit_num / len(test_passwords)  # tính toán tỷ lệ trúng bằng cách chia số lượng mật khẩu trùng khớp cho tổng số mật khẩu trong tệp đầu vào
+    
+    return hit_rate  # trả về tỷ lệ trúng
 
 def get_repeat_rate(gen_files, isNormal):
     '''
@@ -93,23 +94,15 @@ def get_repeat_rate(gen_files, isNormal):
     :param isNormal: tham số boolean để xác định phương pháp tạo mật khẩu
     :return: tỷ lệ lặp lại (repeat rate)
     '''
-    gen_passwords = get_gen_passwords(gen_files, isNormal)
-    _gen_passwords = set(gen_passwords)
-    repeat_rate = 1 - len(_gen_passwords) / len(gen_passwords)
+    gen_passwords = get_gen_passwords(gen_files, isNormal)  # gọi hàm để lấy danh sách các mật khẩu được tạo ra
+    _gen_passwords = set(gen_passwords)  # chuyển đổi danh sách thành tập hợp để loại bỏ các mật khẩu trùng lặp
+    repeat_rate = 1 - len(_gen_passwords) / len(gen_passwords)  # tính toán tỷ lệ lặp lại bằng cách chia số lượng mật khẩu trùng lặp cho tổng số mật khẩu được tạo ra 
     return repeat_rate
 
-# Hàm đánh giá model cho web API
+# Hàm đánh giá model cho web API - SỬA ĐỂ SỬ DỤNG ĐÚNG CÁC HÀM GỐC
 def evaluate_model(test_file_path, gen_path, is_normal):
     """
-    Đánh giá hiệu suất model tạo mật khẩu
-    
-    Args:
-        test_file_path (str): Đường dẫn đến file test
-        gen_path (str): Đường dẫn đến thư mục chứa file generated
-        is_normal (bool): True nếu là Normal mode, False nếu là DC mode
-    
-    Returns:
-        dict: Kết quả đánh giá
+    Đánh giá hiệu suất model tạo mật khẩu - SỬ DỤNG CÁC HÀM GỐC
     """
     try:
         print(f"evaluate_model called with: test_file_path={test_file_path}, gen_path={gen_path}, is_normal={is_normal}")
@@ -125,91 +118,58 @@ def evaluate_model(test_file_path, gen_path, is_normal):
         keyWord = "Normal" if is_normal else "DC"
         print(f"Looking for files with keyword: {keyWord}")
         
-        # Tìm tất cả files generated
-        gen_files = []
-        if os.path.exists(gen_path):
-            for root, dirs, files in os.walk(gen_path):
-                for file in files:
-                    if keyWord.lower() in file.lower() and file.endswith('.txt'):
-                        full_path = os.path.join(root, file)
-                        gen_files.append(full_path)
-                        print(f"Found generated file: {full_path}")
-        
+        # SỬ DỤNG HÀM GỐC get_all_files
+        gen_files = get_all_files(gen_path, keyWord)
         print(f"Total generated files found: {len(gen_files)}")
         
         if not gen_files:
-            return {'error': f'No {keyWord} generated files (.txt) found in {gen_path}'}
+            return {'error': f'No {keyWord} generated files found in {gen_path}'}
         
-        # Read test passwords
+        # In ra files tìm được
+        for gen_file in gen_files:
+            print(f"Found generated file: {gen_file}")
+        
+        # SỬ DỤNG HÀM GỐC get_hit_rate - QUAN TRỌNG!
+        hit_rate = get_hit_rate(test_file_path, gen_files, is_normal)
+        print(f"Hit rate from original function: {hit_rate}")
+        
+        # SỬ DỤNG HÀM GỐC get_repeat_rate - QUAN TRỌNG!
+        repeat_rate = get_repeat_rate(gen_files, is_normal)
+        print(f"Repeat rate from original function: {repeat_rate}")
+        
+        # Lấy thông tin chi tiết để hiển thị (chỉ để hiển thị, không ảnh hưởng kết quả chính)
+        gen_passwords = get_gen_passwords(gen_files, is_normal)
+        
+        # Đọc test passwords để tính thông tin chi tiết
         test_passwords = set()
-        try:
-            with open(test_file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    password = line.strip()
-                    if password:
-                        test_passwords.add(password)
-        except Exception as e:
-            return {'error': f'Error reading test file: {str(e)}'}
+        with open(test_file_path, "r", encoding='utf-8') as f:
+            test_passwords = set(f.readlines())
         
         print(f"Test passwords loaded: {len(test_passwords)}")
-        
-        if not test_passwords:
-            return {'error': 'No valid passwords found in test file'}
-        
-        # Read generated passwords
-        gen_passwords = []
-        for gen_file in gen_files:
-            try:
-                with open(gen_file, 'r', encoding='utf-8') as f:
-                    if is_normal:
-                        for line in f:
-                            try:
-                                # Normal format: "probability password"
-                                parts = line.strip().split(" ", 1)
-                                if len(parts) >= 2:
-                                    password = parts[1]
-                                    if password:
-                                        gen_passwords.append(password)
-                            except:
-                                continue
-                    else:
-                        for line in f:
-                            password = line.strip()
-                            if password:
-                                gen_passwords.append(password)
-            except Exception as e:
-                print(f"Error reading {gen_file}: {e}")
-                continue
-        
         print(f"Generated passwords loaded: {len(gen_passwords)}")
         
-        if not gen_passwords:
-            return {'error': 'No generated passwords found in files'}
-        
-        # Calculate hit rate
+        # Tính thông tin chi tiết cho hiển thị
         gen_set = set(gen_passwords)
-        hits = len(test_passwords.intersection(gen_set))
-        hit_rate = hits / len(test_passwords) if test_passwords else 0
-        
-        # Calculate repeat rate
+        intersection = test_passwords.intersection(gen_set)
+        hits = len(intersection)
         total_generated = len(gen_passwords)
         unique_generated = len(gen_set)
-        repeat_rate = 1 - unique_generated / total_generated if total_generated > 0 else 0
+        repeats = total_generated - unique_generated
         
         # Sample matches
-        sample_matches = list(test_passwords.intersection(gen_set))[:20]
+        sample_matches = list(intersection)[:20]
         
-        print(f"Results - Hit rate: {hit_rate:.4f}, Repeat rate: {repeat_rate:.4f}")
+        print(f"Details calculated - hits: {hits}, total_generated: {total_generated}, unique_generated: {unique_generated}")
         
         return {
-            'hit_rate': hit_rate,
-            'repeat_rate': repeat_rate,
+            'hit_rate': hit_rate,  # KẾT QUẢ TỪ HÀM GỐC
+            'repeat_rate': repeat_rate,  # KẾT QUẢ TỪ HÀM GỐC
             'details': {
                 'total_test_passwords': len(test_passwords),
                 'total_generated_passwords': total_generated,
                 'unique_generated': unique_generated,
                 'hits': hits,
-                'repeats': total_generated - unique_generated,
+                'repeats': repeats,
                 'files_processed': len(gen_files)
             },
             'sample_matches': sample_matches
@@ -217,6 +177,8 @@ def evaluate_model(test_file_path, gen_path, is_normal):
     
     except Exception as e:
         print(f"Exception in evaluate_model: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {'error': str(e)}
 
 def create_evaluation_charts(result, save_to_file=False):
@@ -459,5 +421,3 @@ def create_comparison_evaluation_chart(results_list, labels, save_to_file=False)
         print(f"Error creating comparison evaluation chart: {e}")
         traceback.print_exc()
         return None
-
-# ...existing code...

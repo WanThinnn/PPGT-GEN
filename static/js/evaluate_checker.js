@@ -223,9 +223,23 @@ function displayResult(result, isSuccess) {
   resultText += `${'='.repeat(60)}\n\n`;
   
   resultText += `📊 KẾT QUẢ ĐÁNH GIÁ:\n`;
-  // Hiển thị 8 chữ số thập phân cho Hit Rate và Repeat Rate
-  resultText += `Hit Rate: ${result.hit_rate.toFixed(8)} (${(result.hit_rate * 100).toFixed(6)}%)\n`;
-  resultText += `Repeat Rate: ${result.repeat_rate.toFixed(8)} (${(result.repeat_rate * 100).toFixed(6)}%)\n\n`;
+  
+  // FIXED: Hiển thị giá trị chính xác với nhiều chữ số thập phân hơn
+  const hitRateRaw = result.hit_rate;
+  const repeatRateRaw = result.repeat_rate;
+  
+  // Hiển thị giá trị raw với 15 chữ số thập phân
+  resultText += `Hit Rate: ${hitRateRaw.toFixed(15)}\n`;
+  resultText += `Hit Rate (%): ${(hitRateRaw * 100).toFixed(12)}%\n`;
+  resultText += `Repeat Rate: ${repeatRateRaw.toFixed(15)}\n`;
+  resultText += `Repeat Rate (%): ${(repeatRateRaw * 100).toFixed(12)}%\n\n`;
+  
+  // THÊM: Scientific notation nếu số quá nhỏ
+  if (repeatRateRaw < 0.001) {
+    resultText += `📋 SCIENTIFIC NOTATION:\n`;
+    resultText += `Hit Rate: ${hitRateRaw.toExponential(8)}\n`;
+    resultText += `Repeat Rate: ${repeatRateRaw.toExponential(8)}\n\n`;
+  }
   
   // THÊM: Thông báo về biểu đồ
   if (result.chart) {
@@ -246,74 +260,90 @@ function displayResult(result, isSuccess) {
   resultText += `Số mật khẩu lặp lại: ${result.details.repeats.toLocaleString()}\n`;
   resultText += `Số file đã xử lý: ${result.details.files_processed}\n\n`;
   
-  // Thêm thông tin chi tiết hơn
-  resultText += `🔍 THÔNG TIN CHI TIẾT:\n`;
-  const hitRatePercent = result.hit_rate * 100;
-  const repeatRatePercent = result.repeat_rate * 100;
+  // Thêm thông tin chi tiết hơn với độ chính xác cao
+  resultText += `🔍 THÔNG TIN CHI TIẾT (ĐỘ CHÍNH XÁC CAO):\n`;
+  const hitRatePercent = hitRateRaw * 100;
+  const repeatRatePercent = repeatRateRaw * 100;
   const uniqueRatio = (result.details.unique_generated / result.details.total_generated_passwords) * 100;
   
-  resultText += `Tỷ lệ unique trong generated: ${uniqueRatio.toFixed(6)}%\n`;
-  resultText += `Tỷ lệ hit trên tổng generated: ${(result.details.hits / result.details.total_generated_passwords * 100).toFixed(6)}%\n`;
-  resultText += `Tỷ lệ coverage test set: ${(result.details.hits / result.details.total_test_passwords * 100).toFixed(6)}%\n\n`;
+  resultText += `Tỷ lệ unique trong generated: ${uniqueRatio.toFixed(10)}%\n`;
+  resultText += `Tỷ lệ hit trên tổng generated: ${(result.details.hits / result.details.total_generated_passwords * 100).toFixed(10)}%\n`;
+  resultText += `Tỷ lệ coverage test set: ${(result.details.hits / result.details.total_test_passwords * 100).toFixed(10)}%\n\n`;
   
-  // Đánh giá hiệu suất
-  resultText += `🎯 ĐÁNH GIÁ HIỆU SUẤT:\n`;
+  // Đánh giá hiệu suất với độ chính xác cao
+  resultText += `🎯 ĐÁNH GIÁ HIỆU SUẤT (ĐỘ CHÍNH XÁO CAO):\n`;
   
   // Hit Rate evaluation với nhiều chữ số
   if (hitRatePercent >= 15) {
-    resultText += `✅ Hit Rate: Xuất sắc (≥15.000000%)\n`;
+    resultText += `✅ Hit Rate: Xuất sắc (≥15.000000%) - Actual: ${hitRatePercent.toFixed(8)}%\n`;
   } else if (hitRatePercent >= 10) {
-    resultText += `🟡 Hit Rate: Tốt (10.000000-15.000000%)\n`;
+    resultText += `🟡 Hit Rate: Tốt (10.000000-15.000000%) - Actual: ${hitRatePercent.toFixed(8)}%\n`;
   } else if (hitRatePercent >= 5) {
-    resultText += `🟠 Hit Rate: Trung bình (5.000000-10.000000%)\n`;
+    resultText += `🟠 Hit Rate: Trung bình (5.000000-10.000000%) - Actual: ${hitRatePercent.toFixed(8)}%\n`;
   } else if (hitRatePercent >= 1) {
-    resultText += `🔴 Hit Rate: Yếu (1.000000-5.000000%)\n`;
+    resultText += `🔴 Hit Rate: Yếu (1.000000-5.000000%) - Actual: ${hitRatePercent.toFixed(8)}%\n`;
   } else {
-    resultText += `💀 Hit Rate: Rất yếu (<1.000000%)\n`;
+    resultText += `💀 Hit Rate: Rất yếu (<1.000000%) - Actual: ${hitRatePercent.toFixed(8)}%\n`;
   }
   
-  // Repeat Rate evaluation với nhiều chữ số
-  if (repeatRatePercent <= 1) {
-    resultText += `✅ Repeat Rate: Xuất sắc (≤1.000000%)\n`;
+  // Repeat Rate evaluation với độ chính xác cực cao
+  if (repeatRatePercent <= 0.000001) {
+    resultText += `✅ Repeat Rate: Xuất sắc (≤0.000001%) - Actual: ${repeatRatePercent.toFixed(10)}%\n`;
+  } else if (repeatRatePercent <= 0.001) {
+    resultText += `🟢 Repeat Rate: Rất tốt (≤0.001000%) - Actual: ${repeatRatePercent.toFixed(10)}%\n`;
+  } else if (repeatRatePercent <= 0.1) {
+    resultText += `🟡 Repeat Rate: Tốt (≤0.100000%) - Actual: ${repeatRatePercent.toFixed(8)}%\n`;
+  } else if (repeatRatePercent <= 1) {
+    resultText += `🟠 Repeat Rate: Trung bình (≤1.000000%) - Actual: ${repeatRatePercent.toFixed(8)}%\n`;
   } else if (repeatRatePercent <= 5) {
-    resultText += `🟡 Repeat Rate: Tốt (1.000000-5.000000%)\n`;
-  } else if (repeatRatePercent <= 10) {
-    resultText += `🟠 Repeat Rate: Trung bình (5.000000-10.000000%)\n`;
-  } else if (repeatRatePercent <= 20) {
-    resultText += `🔴 Repeat Rate: Yếu (10.000000-20.000000%)\n`;
+    resultText += `🔴 Repeat Rate: Yếu (1.000000-5.000000%) - Actual: ${repeatRatePercent.toFixed(8)}%\n`;
   } else {
-    resultText += `💀 Repeat Rate: Rất yếu (>20.000000%)\n`;
+    resultText += `💀 Repeat Rate: Rất yếu (>5.000000%) - Actual: ${repeatRatePercent.toFixed(8)}%\n`;
   }
   
   // Overall score
   const overallScore = calculateOverallScore(result.hit_rate, result.repeat_rate);
-  resultText += `\n🏆 ĐIỂM TỔNG THỂ: ${overallScore.score.toFixed(2)}/10.00 (${overallScore.grade})\n`;
+  resultText += `\n🏆 ĐIỂM TỔNG THỂ: ${overallScore.score.toFixed(4)}/10.0000 (${overallScore.grade})\n`;
   
-  // Thêm thông tin về efficiency
-  resultText += `\n📊 HIỆU SUẤT:\n`;
-  resultText += `Efficiency Score: ${(result.hit_rate / (result.repeat_rate + 0.001) * 100).toFixed(4)}\n`;
-  resultText += `Quality Index: ${((hitRatePercent * uniqueRatio) / 10000).toFixed(6)}\n`;
+  // Thêm thông tin về efficiency với độ chính xác cao
+  resultText += `\n📊 HIỆU SUẤT (ĐỘ CHÍNH XÁC CAO):\n`;
+  const efficiencyScore = hitRateRaw / (repeatRateRaw + 0.000000001) * 100;
+  const qualityIndex = (hitRatePercent * uniqueRatio) / 10000;
+  
+  resultText += `Efficiency Score: ${efficiencyScore.toFixed(6)}\n`;
+  resultText += `Quality Index: ${qualityIndex.toFixed(10)}\n`;
+  
+  // THÊM: Raw data section
+  resultText += `\n🔬 RAW DATA (EXACT VALUES):\n`;
+  resultText += `Hit Rate (raw): ${hitRateRaw}\n`;
+  resultText += `Repeat Rate (raw): ${repeatRateRaw}\n`;
+  resultText += `Hit Rate (scientific): ${hitRateRaw.toExponential(12)}\n`;
+  resultText += `Repeat Rate (scientific): ${repeatRateRaw.toExponential(12)}\n`;
   
   // Recommendations với thông tin chi tiết hơn
   resultText += `\n💡 KHUYẾN NGHỊ CHI TIẾT:\n`;
   if (hitRatePercent < 1) {
-    resultText += `  🔥 CRITICAL: Hit Rate rất thấp (${hitRatePercent.toFixed(6)}%), cần training lại model\n`;
+    resultText += `  🔥 CRITICAL: Hit Rate rất thấp (${hitRatePercent.toFixed(8)}%), cần training lại model\n`;
   } else if (hitRatePercent < 5) {
-    resultText += `  ⚠️  WARNING: Hit Rate thấp (${hitRatePercent.toFixed(6)}%), cần fine-tune model\n`;
+    resultText += `  ⚠️  WARNING: Hit Rate thấp (${hitRatePercent.toFixed(8)}%), cần fine-tune model\n`;
   } else if (hitRatePercent < 10) {
-    resultText += `  ℹ️  INFO: Hit Rate có thể cải thiện (${hitRatePercent.toFixed(6)}%)\n`;
+    resultText += `  ℹ️  INFO: Hit Rate có thể cải thiện (${hitRatePercent.toFixed(8)}%)\n`;
+  } else {
+    resultText += `  ✅ GOOD: Hit Rate đạt mức tốt (${hitRatePercent.toFixed(8)}%)\n`;
   }
   
-  if (repeatRatePercent > 20) {
-    resultText += `  🔥 CRITICAL: Repeat Rate cao (${repeatRatePercent.toFixed(6)}%), cần tăng diversity\n`;
-  } else if (repeatRatePercent > 10) {
-    resultText += `  ⚠️  WARNING: Repeat Rate hơi cao (${repeatRatePercent.toFixed(6)}%)\n`;
-  } else if (repeatRatePercent < 0.001) {
-    resultText += `  ✅ EXCELLENT: Repeat Rate rất thấp (${repeatRatePercent.toFixed(6)}%), diversity tốt\n`;
+  if (repeatRatePercent > 1) {
+    resultText += `  🔥 CRITICAL: Repeat Rate cao (${repeatRatePercent.toFixed(8)}%), cần tăng diversity\n`;
+  } else if (repeatRatePercent > 0.1) {
+    resultText += `  ⚠️  WARNING: Repeat Rate hơi cao (${repeatRatePercent.toFixed(8)}%)\n`;
+  } else if (repeatRatePercent < 0.000001) {
+    resultText += `  ✅ EXCELLENT: Repeat Rate cực thấp (${repeatRatePercent.toFixed(10)}%), diversity xuất sắc\n`;
+  } else {
+    resultText += `  ✅ GOOD: Repeat Rate thấp (${repeatRatePercent.toFixed(8)}%), diversity tốt\n`;
   }
   
-  if (hitRatePercent >= 10 && repeatRatePercent <= 5) {
-    resultText += `  🎉 Model đang hoạt động rất tốt!\n`;
+  if (hitRatePercent >= 5 && repeatRatePercent <= 0.1) {
+    resultText += `  🎉 Model đang hoạt động rất tốt với hit rate cao và repeat rate thấp!\n`;
   }
   
   // Show sample matches if available
@@ -335,6 +365,7 @@ function displayResult(result, isSuccess) {
   }
   resultText += `Generated by PagPassGPT Evaluator v1.0\n`;
   resultText += `Report generated at: ${new Date().toISOString()}\n`;
+  resultText += `High-precision evaluation results preserved\n`;
   
   resultElement.textContent = resultText;
   
@@ -360,36 +391,44 @@ function displayResult(result, isSuccess) {
 }
 
 function calculateOverallScore(hitRate, repeatRate) {
-  // Hit rate component (0-6 points, higher is better) - scale mở rộng
+  // Hit rate component (0-6 points, higher is better) - scale mở rộng với độ chính xác cao
   let hitScore = 0;
   const hitPercent = hitRate * 100;
   if (hitPercent >= 20) hitScore = 6;
-  else if (hitPercent >= 15) hitScore = 5;
-  else if (hitPercent >= 10) hitScore = 4;
-  else if (hitPercent >= 5) hitScore = 3;
-  else if (hitPercent >= 2) hitScore = 2;
-  else if (hitPercent >= 1) hitScore = 1;
+  else if (hitPercent >= 15) hitScore = 5.5;
+  else if (hitPercent >= 10) hitScore = 5;
+  else if (hitPercent >= 5) hitScore = 4;
+  else if (hitPercent >= 2) hitScore = 3;
+  else if (hitPercent >= 1) hitScore = 2;
+  else if (hitPercent >= 0.5) hitScore = 1.5;
+  else if (hitPercent >= 0.1) hitScore = 1;
+  else hitScore = 0.5;
   
-  // Repeat rate component (0-4 points, lower is better) - scale chi tiết hơn  
+  // Repeat rate component (0-4 points, lower is better) - scale chi tiết hơn với độ chính xác cao
   let repeatScore = 0;
   const repeatPercent = repeatRate * 100;
-  if (repeatPercent <= 0.1) repeatScore = 4;        // Gần như không lặp
-  else if (repeatPercent <= 1) repeatScore = 3.5;   // Rất ít lặp
-  else if (repeatPercent <= 5) repeatScore = 3;     // Ít lặp
-  else if (repeatPercent <= 10) repeatScore = 2;    // Lặp vừa phải
-  else if (repeatPercent <= 20) repeatScore = 1;    // Lặp nhiều
-  else repeatScore = 0;                              // Lặp rất nhiều
+  if (repeatPercent <= 0.000001) repeatScore = 4;        // Gần như hoàn hảo
+  else if (repeatPercent <= 0.00001) repeatScore = 3.8;  // Xuất sắc
+  else if (repeatPercent <= 0.0001) repeatScore = 3.6;   // Rất tốt
+  else if (repeatPercent <= 0.001) repeatScore = 3.4;    // Tốt
+  else if (repeatPercent <= 0.01) repeatScore = 3.2;     // Khá tốt
+  else if (repeatPercent <= 0.1) repeatScore = 3;        // Ổn
+  else if (repeatPercent <= 1) repeatScore = 2;          // Trung bình
+  else if (repeatPercent <= 5) repeatScore = 1;          // Yếu
+  else repeatScore = 0;                                   // Rất yếu
   
   const totalScore = hitScore + repeatScore;
   
   let grade = '';
-  if (totalScore >= 9) grade = 'A+';
-  else if (totalScore >= 8) grade = 'A';
-  else if (totalScore >= 7) grade = 'B+';
-  else if (totalScore >= 6) grade = 'B';
+  if (totalScore >= 9.5) grade = 'A+';
+  else if (totalScore >= 9) grade = 'A';
+  else if (totalScore >= 8.5) grade = 'A-';
+  else if (totalScore >= 8) grade = 'B+';
+  else if (totalScore >= 7) grade = 'B';
+  else if (totalScore >= 6) grade = 'B-';
   else if (totalScore >= 5) grade = 'C+';
   else if (totalScore >= 4) grade = 'C';
-  else if (totalScore >= 3) grade = 'D+';
+  else if (totalScore >= 3) grade = 'C-';
   else if (totalScore >= 2) grade = 'D';
   else grade = 'F';
   
