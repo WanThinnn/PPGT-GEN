@@ -11,6 +11,11 @@ from libanalyst.password_pattern_checker import (
     load_passwords, get_pattern, length_dist, pattern_dist, euclid,
     create_comparison_chart, create_single_analysis_charts
 )
+from libanalyst.password_entropy_checker import (
+    analyze_single_password, analyze_password_file, 
+    create_entropy_chart, create_entropy_comparison_chart
+)
+
 from collections import Counter
 from datetime import datetime
 import tempfile
@@ -793,59 +798,6 @@ def cancel_password_check():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/analyze_single_entropy', methods=['POST'])
-def analyze_single_entropy_api():
-    try:
-        data = request.get_json()
-        password = data.get('password', '')
-        
-        if not password:
-            return jsonify({'error': 'Password is required'}), 400
-        
-        result = analyze_single_password(password)
-        
-        if 'error' in result:
-            return jsonify(result), 400
-        
-        return jsonify(result)
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/analyze_file_entropy', methods=['POST'])
-def analyze_file_entropy_api():
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as temp_file:
-            content = file.read().decode('utf-8')
-            temp_file.write(content)
-            temp_filename = temp_file.name
-        
-        try:
-            result = analyze_password_file(temp_filename)
-            
-            if 'error' in result:
-                return jsonify(result), 400
-            
-            # Add metadata
-            result['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            result['filename'] = file.filename
-            
-            return jsonify(result)
-        
-        finally:
-            if os.path.exists(temp_filename):
-                os.unlink(temp_filename)
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/evaluate_password_model', methods=['POST'])
 def evaluate_password_model_api():
@@ -1116,6 +1068,112 @@ def analyze_password_patterns_api():
     
     except Exception as e:
         logger.error(f"Error in analyze_password_patterns: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/analyze_single_entropy', methods=['POST'])
+def analyze_single_entropy_api():
+    try:
+        data = request.get_json()
+        password = data.get('password', '')
+        
+        if not password:
+            return jsonify({'error': 'Password is required'}), 400
+        
+        result = analyze_single_password(password)
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        # THÊM: Tạo biểu đồ
+        try:
+            chart_base64 = create_entropy_chart(result, mode='single', save_to_file=False)
+            if chart_base64:
+                result['chart'] = chart_base64
+                logger.info("Entropy chart generated successfully for single password")
+            else:
+                logger.warning("Failed to generate entropy chart for single password")
+        except Exception as chart_error:
+            logger.error(f"Entropy chart generation error: {chart_error}")
+            # Không return error, chỉ log warning vì chart không phải là critical
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/analyze_file_entropy', methods=['POST'])
+def analyze_file_entropy_api():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as temp_file:
+            content = file.read().decode('utf-8')
+            temp_file.write(content)
+            temp_filename = temp_file.name
+        
+        try:
+            result = analyze_password_file(temp_filename)
+            
+            if 'error' in result:
+                return jsonify(result), 400
+            
+            # Add metadata
+            result['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            result['filename'] = file.filename
+            
+            # THÊM: Tạo biểu đồ
+            try:
+                chart_base64 = create_entropy_chart(result, mode='file', save_to_file=False)
+                if chart_base64:
+                    result['chart'] = chart_base64
+                    logger.info("Entropy chart generated successfully for file analysis")
+                else:
+                    logger.warning("Failed to generate entropy chart for file analysis")
+            except Exception as chart_error:
+                logger.error(f"Entropy chart generation error: {chart_error}")
+                # Không return error, chỉ log warning vì chart không phải là critical
+            
+            return jsonify(result)
+        
+        finally:
+            if os.path.exists(temp_filename):
+                os.unlink(temp_filename)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# THÊM: Endpoint để tạo biểu đồ entropy riêng (nếu cần)
+@app.route('/create_entropy_chart', methods=['POST'])
+def create_entropy_chart_api():
+    try:
+        data = request.get_json()
+        
+        if not data or 'result' not in data:
+            return jsonify({'error': 'No entropy result provided'}), 400
+        
+        result = data['result']
+        mode = data.get('mode', 'single')
+        save_to_file = data.get('save_to_file', False)
+        
+        chart = create_entropy_chart(result, mode=mode, save_to_file=save_to_file)
+        
+        if chart:
+            if save_to_file:
+                return jsonify({'success': True, 'chart_path': chart})
+            else:
+                return jsonify({'success': True, 'chart': chart})
+        else:
+            return jsonify({'error': 'Failed to create chart'}), 500
+    
+    except Exception as e:
+        logger.error(f"Error in create_entropy_chart: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 # ...existing code...

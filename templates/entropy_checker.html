@@ -108,9 +108,25 @@
                 <button class="action-btn download-btn" id="download-btn" title="Download báo cáo">
                   💾 Download
                 </button>
+                <!-- THÊM: Button để toggle biểu đồ -->
+                <button class="action-btn chart-btn" id="chart-btn" title="Hiện/Ẩn biểu đồ" style="display: none;">
+                  📊 Biểu đồ
+                </button>
               </div>
             </div>
           </div>
+          
+          <!-- THÊM: Chart container -->
+          <div class="chart-container" id="chart-container" style="display: none;">
+            <div class="chart-header">
+              <h4>📊 Biểu đồ phân tích entropy</h4>
+              <button class="chart-toggle-btn" id="chart-toggle-btn" title="Ẩn biểu đồ">✕</button>
+            </div>
+            <div class="chart-content">
+              <img id="chart-image" src="" alt="Entropy Chart" style="max-width: 100%; height: auto;">
+            </div>
+          </div>
+          
           <pre id="result"></pre>
         </div>
       </div>

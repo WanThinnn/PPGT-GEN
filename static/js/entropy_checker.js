@@ -191,6 +191,42 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+// Thêm event listeners cho chart functionality
+document.addEventListener('DOMContentLoaded', function() {
+  // Chart functionality
+  const chartBtn = document.getElementById('chart-btn');
+  const chartToggleBtn = document.getElementById('chart-toggle-btn');
+  
+  if (chartBtn && chartToggleBtn) {
+    chartBtn.addEventListener('click', toggleChart);
+    chartToggleBtn.addEventListener('click', hideChart);
+  }
+});
+
+function toggleChart() {
+  const chartContainer = document.getElementById('chart-container');
+  const chartBtn = document.getElementById('chart-btn');
+  
+  if (chartContainer.style.display === 'none') {
+    chartContainer.style.display = 'block';
+    chartBtn.innerHTML = '📊 Ẩn biểu đồ';
+  } else {
+    hideChart();
+  }
+}
+
+function hideChart() {
+  const chartContainer = document.getElementById('chart-container');
+  const chartBtn = document.getElementById('chart-btn');
+  
+  chartContainer.classList.add('hiding');
+  setTimeout(() => {
+    chartContainer.style.display = 'none';
+    chartContainer.classList.remove('hiding');
+    chartBtn.innerHTML = '📊 Biểu đồ';
+  }, 300);
+}
+
 function displayResult(result, isSuccess) {
   if (currentMode === 'file') {
     window.lastFileResult = result;
@@ -202,6 +238,24 @@ function displayResult(result, isSuccess) {
   
   const resultElement = document.getElementById('result');
   const statusBadge = document.getElementById('status-badge');
+  const chartBtn = document.getElementById('chart-btn');
+  const chartImage = document.getElementById('chart-image');
+  
+  // THÊM: Xử lý biểu đồ
+  if (result.chart) {
+    chartBtn.style.display = 'inline-block';
+    chartImage.src = `data:image/png;base64,${result.chart}`;
+    
+    // Auto show chart for first time
+    setTimeout(() => {
+      if (document.getElementById('chart-container').style.display === 'none') {
+        toggleChart();
+      }
+    }, 500);
+  } else {
+    chartBtn.style.display = 'none';
+    document.getElementById('chart-container').style.display = 'none';
+  }
   
   if (currentMode === 'single') {
     // Single password entropy result
@@ -228,6 +282,16 @@ function displayResult(result, isSuccess) {
       result.char_frequency.slice(0, 5).forEach((item, index) => {
         resultText += `  ${index + 1}. '${item.char}': ${item.count} lần (${item.frequency.toFixed(4)})\n`;
       });
+    }
+    
+    // THÊM: Thông báo về biểu đồ
+    if (result.chart) {
+      resultText += `\n📊 BIỂU ĐỒ PHÂN TÍCH:\n`;
+      resultText += `✅ Biểu đồ chi tiết đã được tạo - nhấn nút "📊 Biểu đồ" để xem\n`;
+      resultText += `   • Entropy comparison chart\n`;
+      resultText += `   • Character type distribution\n`;
+      resultText += `   • Entropy efficiency gauge\n`;
+      resultText += `   • Character frequency distribution\n`;
     }
     
     resultElement.textContent = resultText;
@@ -275,6 +339,16 @@ function displayResult(result, isSuccess) {
       result.top_chars.forEach((item, index) => {
         resultText += `  ${index + 1}. '${item.char}': ${item.count} (${item.frequency.toFixed(4)})\n`;
       });
+    }
+    
+    // THÊM: Thông báo về biểu đồ
+    if (result.chart) {
+      resultText += `\n📊 BIỂU ĐỒ PHÂN TÍCH:\n`;
+      resultText += `✅ Biểu đồ chi tiết đã được tạo - nhấn nút "📊 Biểu đồ" để xem\n`;
+      resultText += `   • Password entropy statistics\n`;
+      resultText += `   • Character distribution entropy\n`;
+      resultText += `   • Character type distribution\n`;
+      resultText += `   • Most frequent characters\n`;
     }
     
     resultElement.textContent = resultText;
