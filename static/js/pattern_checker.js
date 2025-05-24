@@ -252,7 +252,7 @@ function displayResult(result, isSuccess) {
     resultText += `📈 PHÂN TÍCH LENGTH DISTRIBUTION:\n`;
     resultText += `Length Distance (so với plaintext gốc):\n`;
     result.length_distances.forEach((item, index) => {
-      const models = ['DC Generated', 'PassGPT', 'PassGAN'];
+      const models = ['PagPassGPT', 'PassGPT', 'PassGAN'];
       resultText += `  • ${models[index]}: ${item.distance.toFixed(6)}\n`;
     });
     resultText += `\n`;
@@ -260,7 +260,7 @@ function displayResult(result, isSuccess) {
     resultText += `🧩 PHÂN TÍCH PATTERN DISTRIBUTION:\n`;
     resultText += `Pattern Distance (so với plaintext gốc):\n`;
     result.pattern_distances.forEach((item, index) => {
-      const models = ['DC Generated', 'PassGPT', 'PassGAN'];
+      const models = ['PagPassGPT', 'PassGPT', 'PassGAN'];
       resultText += `  • ${models[index]}: ${item.distance.toFixed(6)}\n`;
     });
     resultText += `\n`;
@@ -269,7 +269,7 @@ function displayResult(result, isSuccess) {
     
     // Tính điểm tổng hợp (distance càng thấp càng tốt)
     const totalScores = result.length_distances.map((_, index) => ({
-      model: ['DC Generated', 'PassGPT', 'PassGAN'][index],
+      model: ['PagPassGPT', 'PassGPT', 'PassGAN'][index],
       lengthDist: result.length_distances[index].distance,
       patternDist: result.pattern_distances[index].distance,
       totalScore: result.length_distances[index].distance + result.pattern_distances[index].distance

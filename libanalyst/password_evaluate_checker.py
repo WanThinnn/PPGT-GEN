@@ -243,9 +243,48 @@ def create_evaluation_charts(result, save_to_file=False):
                         ha='center', va='bottom',
                         fontsize=10, fontweight='bold')
         
-        # 3. Performance Score Breakdown
-        hit_score = min(6, result['hit_rate'] * 100 * 0.3)  # Max 6 points
-        repeat_score = max(0, 4 - result['repeat_rate'] * 100 * 0.2)  # Max 4 points
+        # 3. Performance Score Breakdown - SỬA CÔNG THỨC TÍNH ĐIỂM
+        hit_rate_percent = result['hit_rate'] * 100
+        
+        # SỬA: Công thức tính Hit Score để phản ánh đúng giá trị Hit Rate
+        if hit_rate_percent >= 20:
+            hit_score = 6.0  # Điểm tối đa
+        elif hit_rate_percent >= 15:
+            hit_score = 5.5
+        elif hit_rate_percent >= 10:
+            hit_score = 5.0
+        elif hit_rate_percent >= 5:
+            hit_score = 4.0
+        elif hit_rate_percent >= 2:
+            hit_score = 3.0  # Với 1.9955% nên được khoảng 3 điểm thay vì 0.6
+        elif hit_rate_percent >= 1:
+            hit_score = 2.0
+        elif hit_rate_percent >= 0.5:
+            hit_score = 1.5
+        elif hit_rate_percent >= 0.1:
+            hit_score = 1.0
+        else:
+            hit_score = 0.5
+        
+        # Tính Repeat Score
+        repeat_percent = result['repeat_rate'] * 100
+        if repeat_percent <= 0.000001:
+            repeat_score = 4.0  # Điểm tối đa
+        elif repeat_percent <= 0.0001:
+            repeat_score = 3.8
+        elif repeat_percent <= 0.001:
+            repeat_score = 3.6
+        elif repeat_percent <= 0.01:
+            repeat_score = 3.4
+        elif repeat_percent <= 0.1:
+            repeat_score = 3.2
+        elif repeat_percent <= 1:
+            repeat_score = 3.0
+        elif repeat_percent <= 5:
+            repeat_score = 2.0
+        else:
+            repeat_score = 1.0
+        
         total_score = hit_score + repeat_score
         
         score_categories = ['Hit Score\n(max 6)', 'Repeat Score\n(max 4)', 'Total Score\n(max 10)']
@@ -313,6 +352,7 @@ def create_evaluation_charts(result, save_to_file=False):
         plt.tight_layout()
         plt.subplots_adjust(top=0.92)
         
+        # Rest of the function remains the same
         if save_to_file:
             # Save to file
             chart_path = f"static/charts/evaluation_{int(time.time())}.png"
@@ -329,7 +369,7 @@ def create_evaluation_charts(result, save_to_file=False):
             plt.close(fig)
             buffer.close()
             return image_base64
-            
+    
     except Exception as e:
         print(f"Error creating evaluation charts: {e}")
         traceback.print_exc()

@@ -965,13 +965,13 @@ def compare_password_patterns_api():
             
             # Tính toán Euclidean distances
             length_distances = [
-                {'model': 'DC Generated', 'distance': euclid(ld_orig, ld_dc)},
+                {'model': 'PagPassGPT', 'distance': euclid(ld_orig, ld_dc)},
                 {'model': 'PassGPT', 'distance': euclid(ld_orig, ld_passgpt)},
                 {'model': 'PassGAN', 'distance': euclid(ld_orig, ld_passgan)}
             ]
             
             pattern_distances = [
-                {'model': 'DC Generated', 'distance': euclid(pd_orig, pd_dc)},
+                {'model': 'PagPassGPT', 'distance': euclid(pd_orig, pd_dc)},
                 {'model': 'PassGPT', 'distance': euclid(pd_orig, pd_passgpt)},
                 {'model': 'PassGAN', 'distance': euclid(pd_orig, pd_passgan)}
             ]

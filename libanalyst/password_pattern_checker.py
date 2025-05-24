@@ -61,7 +61,7 @@ def create_comparison_chart(length_distances, pattern_distances, save_to_file=Fa
         base64 string của hình ảnh hoặc file path
     """
     try:
-        labels = ['DC Generated', 'PassGPT', 'PassGAN']
+        labels = ['PagPassGPT', 'PassGPT', 'PassGAN']
         dist_length = [item['distance'] for item in length_distances]
         dist_pattern = [item['distance'] for item in pattern_distances]
         
