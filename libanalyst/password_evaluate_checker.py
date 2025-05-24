@@ -6,6 +6,17 @@ Nó sẽ đọc các mật khẩu từ một tệp đầu vào, phân tích chú
 '''
 import argparse
 import os
+import matplotlib
+matplotlib.use('Agg')  # Set backend for server environment
+import matplotlib.pyplot as plt
+import numpy as np
+import base64
+import io
+import time
+import traceback
+
+# Set font để tránh warning
+plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'sans-serif']
 
 def get_all_files(path, keyWord):
     '''
@@ -208,21 +219,245 @@ def evaluate_model(test_file_path, gen_path, is_normal):
         print(f"Exception in evaluate_model: {str(e)}")
         return {'error': str(e)}
 
-# Phần chạy script gốc (chỉ chạy khi file được chạy trực tiếp)
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--test_file", help="file of test set", type=str, required=True)
-    parser.add_argument("--gen_path", help="path of generated password", type=str, required=True)
-    parser.add_argument("--isNormal", action="store_true", help="whether the generated password is in normal method")
-    args = parser.parse_args()
+def create_evaluation_charts(result, save_to_file=False):
+    """
+    Tạo biểu đồ đánh giá model cho web API
+    
+    Args:
+        result: Kết quả từ evaluate_model
+        save_to_file: True nếu muốn save file, False nếu return base64
+    
+    Returns:
+        base64 string của hình ảnh hoặc file path
+    """
+    try:
+        # Tạo figure với 2x2 subplot
+        plt.style.use('default')
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12), facecolor='white')
+        
+        # 1. Hit Rate vs Repeat Rate Comparison
+        metrics = ['Hit Rate', 'Repeat Rate']
+        values = [result['hit_rate'] * 100, result['repeat_rate'] * 100]
+        colors = ['#34c759', '#ff3b30']
+        
+        bars1 = ax1.bar(metrics, values, color=colors, alpha=0.8, width=0.6)
+        ax1.set_ylabel('Percentage (%)', fontweight='bold')
+        ax1.set_title('Model Performance: Hit Rate vs Repeat Rate', fontweight='bold', pad=20)
+        ax1.grid(True, alpha=0.3, axis='y')
+        
+        # Thêm giá trị trên cột
+        for i, bar in enumerate(bars1):
+            height = bar.get_height()
+            ax1.annotate(f'{height:.4f}%',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        fontsize=12, fontweight='bold')
+        
+        # 2. Password Distribution Analysis
+        categories = ['Total Test', 'Total Generated', 'Hits', 'Unique Generated', 'Repeats']
+        counts = [
+            result['details']['total_test_passwords'],
+            result['details']['total_generated_passwords'],
+            result['details']['hits'],
+            result['details']['unique_generated'],
+            result['details']['repeats']
+        ]
+        
+        bars2 = ax2.bar(categories, counts, color=['#007AFF', '#5856d6', '#34c759', '#ff9500', '#ff3b30'], alpha=0.8)
+        ax2.set_ylabel('Count', fontweight='bold')
+        ax2.set_title('Password Distribution Analysis', fontweight='bold', pad=20)
+        ax2.tick_params(axis='x', rotation=45)
+        ax2.grid(True, alpha=0.3, axis='y')
+        
+        # Thêm giá trị trên cột
+        for bar in bars2:
+            height = bar.get_height()
+            ax2.annotate(f'{int(height):,}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        fontsize=10, fontweight='bold')
+        
+        # 3. Performance Score Breakdown
+        hit_score = min(6, result['hit_rate'] * 100 * 0.3)  # Max 6 points
+        repeat_score = max(0, 4 - result['repeat_rate'] * 100 * 0.2)  # Max 4 points
+        total_score = hit_score + repeat_score
+        
+        score_categories = ['Hit Score\n(max 6)', 'Repeat Score\n(max 4)', 'Total Score\n(max 10)']
+        score_values = [hit_score, repeat_score, total_score]
+        max_values = [6, 4, 10]
+        
+        x_pos = np.arange(len(score_categories))
+        bars3 = ax3.bar(x_pos, score_values, color=['#34c759', '#ff9500', '#5856d6'], alpha=0.8)
+        ax3.bar(x_pos, max_values, color='lightgray', alpha=0.3, width=0.5)
+        
+        ax3.set_ylabel('Score', fontweight='bold')
+        ax3.set_title('Performance Score Breakdown', fontweight='bold', pad=20)
+        ax3.set_xticks(x_pos)
+        ax3.set_xticklabels(score_categories)
+        ax3.set_ylim(0, 10)
+        ax3.grid(True, alpha=0.3, axis='y')
+        
+        # Thêm giá trị trên cột
+        for i, bar in enumerate(bars3):
+            height = bar.get_height()
+            ax3.annotate(f'{height:.2f}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        fontsize=12, fontweight='bold')
+        
+        # 4. Efficiency Metrics
+        efficiency_score = result['hit_rate'] / (result['repeat_rate'] + 0.001) * 100
+        quality_index = (result['hit_rate'] * 100 * result['details']['unique_generated'] / result['details']['total_generated_passwords']) / 100
+        coverage_rate = result['details']['hits'] / result['details']['total_test_passwords'] * 100
+        
+        efficiency_metrics = ['Efficiency\nScore', 'Quality\nIndex', 'Coverage\nRate (%)']
+        efficiency_values = [efficiency_score, quality_index * 100, coverage_rate]
+        
+        bars4 = ax4.bar(efficiency_metrics, efficiency_values, 
+                       color=['#af52de', '#5856d6', '#007AFF'], alpha=0.8)
+        ax4.set_ylabel('Value', fontweight='bold')
+        ax4.set_title('Model Efficiency Metrics', fontweight='bold', pad=20)
+        ax4.grid(True, alpha=0.3, axis='y')
+        
+        # Thêm giá trị trên cột
+        for i, bar in enumerate(bars4):
+            height = bar.get_height()
+            if i == 1:  # Quality Index
+                ax4.annotate(f'{height:.4f}',
+                            xy=(bar.get_x() + bar.get_width() / 2, height),
+                            xytext=(0, 3),
+                            textcoords="offset points",
+                            ha='center', va='bottom',
+                            fontsize=11, fontweight='bold')
+            else:
+                ax4.annotate(f'{height:.2f}',
+                            xy=(bar.get_x() + bar.get_width() / 2, height),
+                            xytext=(0, 3),
+                            textcoords="offset points",
+                            ha='center', va='bottom',
+                            fontsize=11, fontweight='bold')
+        
+        # Tổng title cho toàn bộ figure
+        mode_text = "Normal Mode" if result.get('is_normal', True) else "DC Mode"
+        fig.suptitle(f'Password Model Evaluation Report - {mode_text}\nGenerated at: {result.get("timestamp", "N/A")}', 
+                    fontsize=16, fontweight='bold', y=0.98)
+        
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.92)
+        
+        if save_to_file:
+            # Save to file
+            chart_path = f"static/charts/evaluation_{int(time.time())}.png"
+            os.makedirs(os.path.dirname(chart_path), exist_ok=True)
+            plt.savefig(chart_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig)
+            return chart_path
+        else:
+            # Return base64 string
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            plt.close(fig)
+            buffer.close()
+            return image_base64
+            
+    except Exception as e:
+        print(f"Error creating evaluation charts: {e}")
+        traceback.print_exc()
+        return None
 
-    if args.isNormal:
-        keyWord = "Normal"
-    else:
-        keyWord = "DC"
+def create_comparison_evaluation_chart(results_list, labels, save_to_file=False):
+    """
+    Tạo biểu đồ so sánh nhiều model
+    
+    Args:
+        results_list: List các kết quả đánh giá
+        labels: List tên các model
+        save_to_file: True nếu muốn save file, False nếu return base64
+    
+    Returns:
+        base64 string của hình ảnh hoặc file path
+    """
+    try:
+        plt.style.use('default')
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6), facecolor='white')
+        
+        # Extract data
+        hit_rates = [r['hit_rate'] * 100 for r in results_list]
+        repeat_rates = [r['repeat_rate'] * 100 for r in results_list]
+        
+        # Chart 1: Hit Rate Comparison
+        x = np.arange(len(labels))
+        width = 0.35
+        
+        bars1 = ax1.bar(x, hit_rates, width, label='Hit Rate (%)', 
+                       color='#34c759', alpha=0.8)
+        
+        ax1.set_xlabel('Models', fontweight='bold')
+        ax1.set_ylabel('Hit Rate (%)', fontweight='bold')
+        ax1.set_title('Hit Rate Comparison Across Models', fontweight='bold', pad=20)
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(labels)
+        ax1.grid(True, alpha=0.3, axis='y')
+        
+        # Add values on bars
+        for bar in bars1:
+            height = bar.get_height()
+            ax1.annotate(f'{height:.4f}%',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        fontsize=10, fontweight='bold')
+        
+        # Chart 2: Repeat Rate Comparison
+        bars2 = ax2.bar(x, repeat_rates, width, label='Repeat Rate (%)', 
+                       color='#ff3b30', alpha=0.8)
+        
+        ax2.set_xlabel('Models', fontweight='bold')
+        ax2.set_ylabel('Repeat Rate (%)', fontweight='bold')
+        ax2.set_title('Repeat Rate Comparison Across Models', fontweight='bold', pad=20)
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(labels)
+        ax2.grid(True, alpha=0.3, axis='y')
+        
+        # Add values on bars
+        for bar in bars2:
+            height = bar.get_height()
+            ax2.annotate(f'{height:.4f}%',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        fontsize=10, fontweight='bold')
+        
+        plt.tight_layout()
+        
+        if save_to_file:
+            chart_path = f"static/charts/evaluation_comparison_{int(time.time())}.png"
+            os.makedirs(os.path.dirname(chart_path), exist_ok=True)
+            plt.savefig(chart_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig)
+            return chart_path
+        else:
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            plt.close(fig)
+            buffer.close()
+            return image_base64
+            
+    except Exception as e:
+        print(f"Error creating comparison evaluation chart: {e}")
+        traceback.print_exc()
+        return None
 
-    gen_files = get_all_files(args.gen_path, keyWord)
-    hit_rate = get_hit_rate(args.test_file, gen_files, args.isNormal)
-    repeat_rate = get_repeat_rate(gen_files, args.isNormal)
-    print("Hit Rate: ", hit_rate)
-    print("Repeat Rate: ", repeat_rate)
+# ...existing code...

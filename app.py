@@ -6,7 +6,7 @@ from flask import Flask, jsonify, make_response, request, render_template, redir
 from flask_cors import CORS
 from libanalyst.password_strength_checker import check_single_password
 from libanalyst.password_entropy_checker import analyze_single_password, analyze_password_file
-from libanalyst.password_evaluate_checker import evaluate_model
+from libanalyst.password_evaluate_checker import evaluate_model, create_evaluation_charts, create_comparison_evaluation_chart
 from libanalyst.password_pattern_checker import (
     load_passwords, get_pattern, length_dist, pattern_dist, euclid,
     create_comparison_chart, create_single_analysis_charts
@@ -32,8 +32,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import base64
 import io
-import os
 import time
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, Any, Tuple, Optional
+from flask import Flask, jsonify, make_response, request, render_template, redirect, url_for, send_file
+from flask_cors import CORS
+from collections import Counter
+from datetime import datetime
+from io import StringIO, BytesIO
+
+
 
 # Global variable để track running processes
 running_processes = {}
@@ -648,6 +657,7 @@ def check_single_password_api():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 @app.route('/check_password_file', methods=['POST'])
 def check_password_file_api():
     try:
@@ -845,7 +855,7 @@ def evaluate_password_model_api():
         
         if 'test_file' not in request.files:
             logger.error("No test_file in request.files")
-            return jsonify({'error': 'No test file uploaded'}), 400
+            return jsonify({'error': 'Không có file test được upload'}), 400
         
         test_file = request.files['test_file']
         gen_path = request.form.get('gen_path', '')
@@ -855,11 +865,11 @@ def evaluate_password_model_api():
         
         if test_file.filename == '':
             logger.error("Empty test file name")
-            return jsonify({'error': 'No test file selected'}), 400
+            return jsonify({'error': 'Không có file được chọn'}), 400
         
         if not gen_path.strip():
             logger.error(f"Empty gen_path: '{gen_path}'")
-            return jsonify({'error': 'Generated files path is required'}), 400
+            return jsonify({'error': 'Vui lòng nhập đường dẫn generated files'}), 400
         
         # Convert Windows path to WSL path if needed
         gen_path = PathConverter.win_to_wsl(gen_path.strip())
@@ -879,7 +889,6 @@ def evaluate_password_model_api():
             logger.info(f"evaluate_model result: {result}")
             
             if 'error' in result:
-                logger.error(f"Error in evaluate_model: {result['error']}")
                 return jsonify(result), 400
             
             # Add metadata
@@ -888,36 +897,67 @@ def evaluate_password_model_api():
             result['gen_path'] = gen_path
             result['is_normal'] = is_normal
             
+            # THÊM: Tạo biểu đồ
+            try:
+                chart_base64 = create_evaluation_charts(result, save_to_file=False)
+                if chart_base64:
+                    result['chart'] = chart_base64
+                    logger.info("Chart generated successfully")
+                else:
+                    logger.warning("Failed to generate chart")
+            except Exception as chart_error:
+                logger.error(f"Chart generation error: {chart_error}")
+                # Không return error, chỉ log warning vì chart không phải là critical
+            
             logger.info("evaluate_password_model completed successfully")
             return jsonify(result)
         
         finally:
             if os.path.exists(test_filename):
                 os.unlink(test_filename)
-                logger.info(f"Cleaned up temp file: {test_filename}")
     
     except Exception as e:
         logger.error(f"Exception in evaluate_password_model: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# THÊM: Endpoint để tạo biểu đồ riêng (nếu cần)
+@app.route('/create_evaluation_chart', methods=['POST'])
+def create_evaluation_chart_api():
+    try:
+        data = request.get_json()
+        
+        if not data or 'result' not in data:
+            return jsonify({'error': 'No evaluation result provided'}), 400
+        
+        result = data['result']
+        save_to_file = data.get('save_to_file', False)
+        
+        chart = create_evaluation_charts(result, save_to_file=save_to_file)
+        
+        if chart:
+            if save_to_file:
+                return jsonify({'success': True, 'chart_path': chart})
+            else:
+                return jsonify({'success': True, 'chart': chart})
+        else:
+            return jsonify({'error': 'Failed to create chart'}), 500
+    
+    except Exception as e:
+        logger.error(f"Error in create_evaluation_chart: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/compare_password_patterns', methods=['POST'])
 def compare_password_patterns_api():
     try:
-        logger.info("Starting compare_password_patterns API")
-        
-        # Check if all files are uploaded
+        # Kiểm tra các file được upload
         required_files = ['plaintext_file', 'dc_file', 'passgpt_file', 'passgan_file']
         for file_key in required_files:
             if file_key not in request.files:
-                logger.error(f"Missing {file_key}")
                 return jsonify({'error': f'Missing {file_key}'}), 400
             if request.files[file_key].filename == '':
-                logger.error(f"No {file_key} selected")
                 return jsonify({'error': f'No {file_key} selected'}), 400
         
-        logger.info("All files validated successfully")
-        
-        # Save uploaded files temporarily
+        # Lưu các file tạm thời
         temp_files = {}
         try:
             for file_key in required_files:
@@ -926,57 +966,50 @@ def compare_password_patterns_api():
                     content = file.read().decode('utf-8')
                     temp_file.write(content)
                     temp_files[file_key] = temp_file.name
-                logger.info(f"Saved {file_key} to {temp_file.name}")
             
-            # Load passwords using functions from password_pattern_checker.py
-            logger.info("Loading passwords from files")
+            # Load passwords từ các file
             pws_orig = load_passwords(temp_files['plaintext_file'])
             pws_dc = load_passwords(temp_files['dc_file'])
             pws_passgpt = load_passwords(temp_files['passgpt_file'])
             pws_passgan = load_passwords(temp_files['passgan_file'])
             
-            logger.info(f"Loaded passwords: orig={len(pws_orig)}, dc={len(pws_dc)}, passgpt={len(pws_passgpt)}, passgan={len(pws_passgan)}")
-            
             if not all([pws_orig, pws_dc, pws_passgpt, pws_passgan]):
-                return jsonify({'error': 'One or more files contain no valid passwords'}), 400
+                return jsonify({'error': 'One or more files are empty or invalid'}), 400
             
-            # Compute distributions using existing functions
-            logger.info("Computing distributions")
+            # Tính toán length distributions
             ld_orig = length_dist(pws_orig)
             ld_dc = length_dist(pws_dc)
             ld_passgpt = length_dist(pws_passgpt)
             ld_passgan = length_dist(pws_passgan)
             
+            # Tính toán pattern distributions
             pd_orig = pattern_dist(pws_orig)
             pd_dc = pattern_dist(pws_dc)
             pd_passgpt = pattern_dist(pws_passgpt)
             pd_passgan = pattern_dist(pws_passgan)
             
-            # Compute Euclidean distances to original using existing function
-            logger.info("Computing Euclidean distances")
+            # Tính toán Euclidean distances
             length_distances = [
-                {'model': 'DC_generated', 'distance': euclid(ld_orig, ld_dc)},
+                {'model': 'DC Generated', 'distance': euclid(ld_orig, ld_dc)},
                 {'model': 'PassGPT', 'distance': euclid(ld_orig, ld_passgpt)},
                 {'model': 'PassGAN', 'distance': euclid(ld_orig, ld_passgan)}
             ]
             
             pattern_distances = [
-                {'model': 'DC_generated', 'distance': euclid(pd_orig, pd_dc)},
+                {'model': 'DC Generated', 'distance': euclid(pd_orig, pd_dc)},
                 {'model': 'PassGPT', 'distance': euclid(pd_orig, pd_passgpt)},
                 {'model': 'PassGAN', 'distance': euclid(pd_orig, pd_passgan)}
             ]
             
             # Tạo biểu đồ so sánh
-            logger.info("Creating comparison chart")
             chart_base64 = create_comparison_chart(length_distances, pattern_distances, save_to_file=False)
-            if chart_base64 is None:
-                logger.warning("Failed to create chart, continuing without chart")
             
+            # Chuẩn bị kết quả
             result = {
+                'success': True,
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'length_distances': length_distances,
                 'pattern_distances': pattern_distances,
-                'chart': chart_base64,  # Có thể None nếu lỗi
                 'stats': {
                     'original_passwords': len(pws_orig),
                     'dc_passwords': len(pws_dc),
@@ -985,278 +1018,107 @@ def compare_password_patterns_api():
                 }
             }
             
-            logger.info("compare_password_patterns completed successfully")
+            if chart_base64:
+                result['chart'] = chart_base64
+            
             return jsonify(result)
-        
+            
         finally:
-            # Clean up temp files
+            # Cleanup temporary files
             for temp_file in temp_files.values():
-                try:
-                    if os.path.exists(temp_file):
-                        os.unlink(temp_file)
-                        logger.info(f"Cleaned up {temp_file}")
-                except Exception as e:
-                    logger.error(f"Error cleaning up {temp_file}: {e}")
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
     
     except Exception as e:
         logger.error(f"Error in compare_password_patterns: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/analyze_password_patterns', methods=['POST'])
 def analyze_password_patterns_api():
     try:
-        logger.info("Starting analyze_password_patterns API")
-        
         if 'password_file' not in request.files:
-            return jsonify({'error': 'No password file uploaded'}), 400
+            return jsonify({'error': 'No password file provided'}), 400
         
         file = request.files['password_file']
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
-        logger.info(f"Processing file: {file.filename}")
-        
-        # Save uploaded file temporarily
+        # Lưu file tạm thời
         with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as temp_file:
             content = file.read().decode('utf-8')
             temp_file.write(content)
             temp_filename = temp_file.name
         
         try:
-            # Load passwords using existing function
-            logger.info("Loading passwords from file")
+            # Load passwords
             passwords = load_passwords(temp_filename)
             
             if not passwords:
-                return jsonify({'error': 'No valid passwords found in file'}), 400
+                return jsonify({'error': 'File is empty or contains no valid passwords'}), 400
             
-            logger.info(f"Loaded {len(passwords)} passwords")
-            
-            # Compute length and pattern distributions using existing functions
-            logger.info("Computing distributions")
-            ld = length_dist(passwords)
-            pd = pattern_dist(passwords)
-            
-            # Additional statistics
-            avg_length = sum(len(p) for p in passwords) / len(passwords)
-            unique_patterns = len(pd)
-            
-            # Top lengths and patterns
+            # Tính toán length distribution
             length_counter = Counter(len(p) for p in passwords)
-            pattern_counter = Counter(get_pattern(p) for p in passwords)
+            total_passwords = len(passwords)
+            avg_length = sum(len(p) for p in passwords) / total_passwords
             
+            # Tính toán pattern distribution
+            pattern_counter = Counter(get_pattern(p) for p in passwords)
+            unique_patterns = len(pattern_counter)
+            
+            # Top 10 lengths
             top_lengths = [
                 {
                     'length': length,
                     'count': count,
-                    'frequency': count / len(passwords)
+                    'frequency': count / total_passwords
                 }
                 for length, count in length_counter.most_common(10)
             ]
             
+            # Top 15 patterns
             top_patterns = [
                 {
                     'pattern': pattern,
                     'count': count,
-                    'frequency': count / len(passwords)
+                    'frequency': count / total_passwords
                 }
                 for pattern, count in pattern_counter.most_common(15)
             ]
             
-            # Tạo biểu đồ phân tích
-            logger.info("Creating analysis charts")
-            chart_base64 = create_single_analysis_charts(top_lengths, top_patterns, 
-                                                        filename=file.filename, save_to_file=False)
-            if chart_base64 is None:
-                logger.warning("Failed to create charts, continuing without charts")
+            # Tạo biểu đồ
+            chart_base64 = create_single_analysis_charts(
+                top_lengths, top_patterns, 
+                filename=file.filename, 
+                save_to_file=False
+            )
             
+            # Chuẩn bị kết quả
             result = {
+                'success': True,
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'filename': file.filename,
-                'total_passwords': len(passwords),
+                'total_passwords': total_passwords,
                 'avg_length': avg_length,
                 'unique_patterns': unique_patterns,
                 'top_lengths': top_lengths,
-                'top_patterns': top_patterns,
-                'chart': chart_base64  # Có thể None nếu lỗi
+                'top_patterns': top_patterns
             }
             
-            logger.info("analyze_password_patterns completed successfully")
+            if chart_base64:
+                result['chart'] = chart_base64
+            
             return jsonify(result)
-        
+            
         finally:
-            try:
-                if os.path.exists(temp_filename):
-                    os.unlink(temp_filename)
-                    logger.info(f"Cleaned up {temp_filename}")
-            except Exception as e:
-                logger.error(f"Error cleaning up {temp_filename}: {e}")
+            # Cleanup
+            if os.path.exists(temp_filename):
+                os.unlink(temp_filename)
     
     except Exception as e:
         logger.error(f"Error in analyze_password_patterns: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
-
-# Set font để tránh warning
-plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'sans-serif']
-
-def create_comparison_chart(length_distances, pattern_distances, save_to_file=False):
-    """
-    Tạo biểu đồ so sánh cho web API
-    """
-    try:
-        labels = ['DC Generated', 'PassGPT', 'PassGAN']
-        dist_length = [item['distance'] for item in length_distances]
-        dist_pattern = [item['distance'] for item in pattern_distances]
-        
-        # Tạo biểu đồ
-        x = np.arange(len(labels))
-        width = 0.35
-        
-        # Tạo figure với explicit figsize
-        plt.style.use('default')  # Reset style
-        fig, ax = plt.subplots(figsize=(10, 6), facecolor='white')
-        
-        bars1 = ax.bar(x - width/2, dist_length, width, label='Length Distance', 
-                      color='#ff9500', alpha=0.8)
-        bars2 = ax.bar(x + width/2, dist_pattern, width, label='Pattern Distance', 
-                      color='#ff6b47', alpha=0.8)
-        
-        # Styling
-        ax.set_xlabel('Generated Models', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Euclidean Distance', fontsize=12, fontweight='bold')
-        ax.set_title('Password Pattern Analysis: Length vs Pattern Distances to Original', 
-                    fontsize=14, fontweight='bold', pad=20)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels)
-        ax.legend(loc='upper right')
-        
-        # Thêm giá trị trên các cột
-        def add_value_labels(bars):
-            for bar in bars:
-                height = bar.get_height()
-                ax.annotate(f'{height:.4f}',
-                           xy=(bar.get_x() + bar.get_width() / 2, height),
-                           xytext=(0, 3),
-                           textcoords="offset points",
-                           ha='center', va='bottom',
-                           fontsize=9, fontweight='bold')
-        
-        add_value_labels(bars1)
-        add_value_labels(bars2)
-        
-        # Grid cho dễ đọc
-        ax.grid(True, alpha=0.3, axis='y')
-        ax.set_axisbelow(True)
-        
-        plt.tight_layout()
-        
-        if save_to_file:
-            # Save to file
-            chart_path = f"static/charts/pattern_comparison_{int(time.time())}.png"
-            os.makedirs(os.path.dirname(chart_path), exist_ok=True)
-            plt.savefig(chart_path, dpi=150, bbox_inches='tight', facecolor='white')
-            plt.close(fig)
-            return chart_path
-        else:
-            # Return base64 string
-            buffer = io.BytesIO()
-            plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight', facecolor='white')
-            buffer.seek(0)
-            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            plt.close(fig)
-            buffer.close()
-            return image_base64
-            
-    except Exception as e:
-        print(f"Error creating comparison chart: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-def create_single_analysis_charts(top_lengths, top_patterns, filename="", save_to_file=False):
-    """
-    Tạo biểu đồ phân tích đơn cho web API
-    """
-    try:
-        # Tạo 2 subplot
-        plt.style.use('default')  # Reset style
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6), facecolor='white')
-        
-        # Biểu đồ phân phối độ dài
-        lengths = [item['length'] for item in top_lengths[:10]]
-        length_counts = [item['count'] for item in top_lengths[:10]]
-        
-        bars1 = ax1.bar(range(len(lengths)), length_counts, color='#ff9500', alpha=0.8)
-        ax1.set_xlabel('Password Length', fontweight='bold')
-        ax1.set_ylabel('Count', fontweight='bold')
-        ax1.set_title(f'Top 10 Password Length Distribution\n{filename}', fontweight='bold')
-        ax1.set_xticks(range(len(lengths)))
-        ax1.set_xticklabels(lengths)
-        ax1.grid(True, alpha=0.3, axis='y')
-        
-        # Thêm giá trị trên cột
-        for i, bar in enumerate(bars1):
-            height = bar.get_height()
-            percentage = top_lengths[i]['frequency'] * 100
-            ax1.annotate(f'{int(height)}\n({percentage:.1f}%)',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),
-                        textcoords="offset points",
-                        ha='center', va='bottom',
-                        fontsize=8, fontweight='bold')
-        
-        # Biểu đồ phân phối pattern
-        patterns = [item['pattern'] for item in top_patterns[:10]]
-        pattern_counts = [item['count'] for item in top_patterns[:10]]
-        
-        bars2 = ax2.bar(range(len(patterns)), pattern_counts, color='#ff6b47', alpha=0.8)
-        ax2.set_xlabel('Pattern Type', fontweight='bold')
-        ax2.set_ylabel('Count', fontweight='bold')
-        ax2.set_title(f'Top 10 Pattern Distribution\n{filename}', fontweight='bold')
-        ax2.set_xticks(range(len(patterns)))
-        ax2.set_xticklabels(patterns, rotation=45, ha='right')
-        ax2.grid(True, alpha=0.3, axis='y')
-        
-        # Thêm giá trị trên cột
-        for i, bar in enumerate(bars2):
-            height = bar.get_height()
-            percentage = top_patterns[i]['frequency'] * 100
-            ax2.annotate(f'{int(height)}\n({percentage:.1f}%)',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),
-                        textcoords="offset points",
-                        ha='center', va='bottom',
-                        fontsize=8, fontweight='bold')
-        
-        plt.tight_layout()
-        
-        if save_to_file:
-            # Save to file
-            chart_path = f"static/charts/single_analysis_{int(time.time())}.png"
-            os.makedirs(os.path.dirname(chart_path), exist_ok=True)
-            plt.savefig(chart_path, dpi=150, bbox_inches='tight', facecolor='white')
-            plt.close(fig)
-            return chart_path
-        else:
-            # Return base64 string
-            buffer = io.BytesIO()
-            plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight', facecolor='white')
-            buffer.seek(0)
-            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            plt.close(fig)
-            buffer.close()
-            return image_base64
-            
-    except Exception as e:
-        print(f"Error creating single analysis charts: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-
+# ...existing code...
 if __name__ == "__main__":
     # Cleanup function để kill processes khi app shutdown
     def cleanup_processes():
