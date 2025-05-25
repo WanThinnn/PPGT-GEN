@@ -365,8 +365,9 @@ def dc_generate():
             return jsonify({"error": error}), 400
         
         model_path = os.path.abspath("model/last-step/")
+        cleaned_dataset = os.path.abspath("dataset/rockyou-cleaned.txt")
         # Convert paths
-        params["cleaned_dataset"] = PathConverter.win_to_wsl(params["cleaned_dataset"])
+        params["cleaned_dataset"] = PathConverter.win_to_wsl(cleaned_dataset)
         params["model_path"] = PathConverter.win_to_wsl(model_path)
         params["output_path"] = PathConverter.win_to_wsl(params["output_path"])
         

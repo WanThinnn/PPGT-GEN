@@ -84,13 +84,19 @@ form.addEventListener('submit', async (e) => {
       gpu_index: parseInt(document.getElementById('gpu_index').value)
     };
 
-    // Add cleaned_dataset for DC mode (hardcoded)
+    // SỬA: Thêm cleaned_dataset cho DC mode - QUAN TRỌNG!
     if (currentMode === 'dc') {
+      // Sử dụng đường dẫn tương đối hoặc cho user nhập
       data.cleaned_dataset = 'dataset/rockyou-cleaned.txt';
+      console.log('DC mode - Added cleaned_dataset:', data.cleaned_dataset);
     }
+
+    // Log data để debug
+    console.log('Sending data:', data);
 
     // Choose endpoint based on mode
     const endpoint = currentMode === 'normal' ? '/normal_generate' : '/dc_generate';
+    console.log('Using endpoint:', endpoint);
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -100,6 +106,7 @@ form.addEventListener('submit', async (e) => {
     });
 
     const result = await res.json();
+    console.log('Response:', result);
     
     // Calculate execution time
     const executionTime = executionStartTime ? 
@@ -112,7 +119,7 @@ form.addEventListener('submit', async (e) => {
     showResult();
     
     // Update status badge
-    if (res.ok) {
+    if (res.ok && result.success) {
       statusBadge.textContent = 'Thành công';
       statusBadge.className = 'status-badge status-success';
     } else {
@@ -121,6 +128,8 @@ form.addEventListener('submit', async (e) => {
     }
 
   } catch (error) {
+    console.error('Request error:', error);
+    
     const executionTime = executionStartTime ? 
       Math.round((Date.now() - executionStartTime) / 1000) : 0;
     document.getElementById('execution-time').textContent = `${executionTime}s`;
