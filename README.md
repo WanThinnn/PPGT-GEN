@@ -2,9 +2,9 @@
 
 ## Introduction
 
-PPGT-GEN is a convenient local web application for using the PahPassGPT model, replacing the complex Command Line Interface (CLI) usage. The application provides a user-friendly interface for:
+PPGT-GEN is a convenient local web application for using the PagPassGPT model, replacing the complex Command Line Interface (CLI) usage. The application provides a user-friendly interface for:
 
-- **Password Generation**: Using PahPassGPT model to generate intelligent passwords
+- **Password Generation**: Using PagPassGPT model to generate intelligent passwords
 - **Password Strength Checking**: Analyzing and evaluating password security
 - **Entropy Analysis**: Measuring randomness and unpredictability of passwords
 - **Pattern Checking**: Detecting patterns and rules in passwords
@@ -101,7 +101,7 @@ The application will run at: `http://localhost:5000`
 
 #### 1. PPGT Generator
 - **Path**: `/ppgt_gen`
-- **Function**: Generate passwords using PahPassGPT model
+- **Function**: Generate passwords using PagPassGPT model
 - **Options**: Configure length, patterns, and password generation parameters
 
 #### 2. Password Strength Checker
